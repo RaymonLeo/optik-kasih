@@ -24,4 +24,14 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/dashboard', fn() => Inertia::render('Dashboard'))->name('dashboard');
+});
+
+Route::apiResource('pasien', PasienController::class);
+Route::apiResource('kesehatan', KesehatanController::class);
+Route::apiResource('lensa', LensaController::class);
+Route::apiResource('produk', ProdukController::class);
+Route::apiResource('transaksi', TransaksiController::class);
+
 require __DIR__.'/auth.php';

@@ -21,7 +21,7 @@ export default function Register() {
         setShowAlert(true);
         setTimeout(() => setShowAlert(false), 5000);
       },
-      onSuccess: () => reset('password', 'password_confirmation')
+      onSuccess: () => reset('password', 'password_confirmation'),
     });
   };
 
@@ -42,7 +42,11 @@ export default function Register() {
       >
         <div className="bg-[#FFE0D0] rounded-[32px] shadow-xl w-[90%] max-w-md p-8 md:p-10">
           <div className="flex flex-col items-center mb-8">
-            <img src="/images/logo-optik.png" alt="Optik Kasih Logo" className="w-60 h-auto mb-4" />
+            <img
+              src="/images/logo-optik.png"
+              alt="Optik Kasih Logo"
+              className="w-60 h-auto mb-4"
+            />
           </div>
 
           <div className="text-center mb-8">
@@ -63,6 +67,7 @@ export default function Register() {
                 name="name"
                 value={data.name}
                 onChange={(e) => setData('name', e.target.value)}
+                placeholder="Masukkan nama lengkap Anda"
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-200 text-gray-700"
               />
               <InputError message={errors.name} className="mt-1" />
@@ -75,6 +80,7 @@ export default function Register() {
                 name="email"
                 value={data.email}
                 onChange={(e) => setData('email', e.target.value)}
+                placeholder="Masukkan email aktif Anda"
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-200 text-gray-700"
               />
               <InputError message={errors.email} className="mt-1" />
@@ -87,6 +93,7 @@ export default function Register() {
                 name="password"
                 value={data.password}
                 onChange={(e) => setData('password', e.target.value)}
+                placeholder="Masukkan password"
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-200 text-gray-700"
               />
               <InputError message={errors.password} className="mt-1" />
@@ -99,6 +106,7 @@ export default function Register() {
                 name="password_confirmation"
                 value={data.password_confirmation}
                 onChange={(e) => setData('password_confirmation', e.target.value)}
+                placeholder="Ulangi password"
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-200 text-gray-700"
               />
               <InputError message={errors.password_confirmation} className="mt-1" />
