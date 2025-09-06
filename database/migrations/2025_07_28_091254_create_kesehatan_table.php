@@ -8,9 +8,10 @@ return new class extends Migration {
     public function up(): void {
         Schema::create('kesehatan', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('pasien_id')->constrained('pasien')->onDelete('cascade');
+            $table->foreignId('pasien_id')->constrained('pasien')->cascadeOnDelete();
             $table->date('tanggal_periksa');
-            
+
+            // Mata kanan
             $table->string('sph_kanan')->nullable();
             $table->string('cyl_kanan')->nullable();
             $table->string('axis_kanan')->nullable();
@@ -19,6 +20,7 @@ return new class extends Migration {
             $table->string('add_kanan')->nullable();
             $table->string('pd_kanan')->nullable();
 
+            // Mata kiri
             $table->string('sph_kiri')->nullable();
             $table->string('cyl_kiri')->nullable();
             $table->string('axis_kiri')->nullable();
@@ -28,6 +30,9 @@ return new class extends Migration {
             $table->string('pd_kiri')->nullable();
 
             $table->timestamps();
+
+            // Ambil cepat riwayat terbaru per pasien
+            $table->index(['pasien_id', 'tanggal_periksa']);
         });
     }
 
@@ -35,4 +40,3 @@ return new class extends Migration {
         Schema::dropIfExists('kesehatan');
     }
 };
-

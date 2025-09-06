@@ -14,6 +14,10 @@ return new class extends Migration {
             $table->string('nohp_pasien')->nullable();
             $table->date('tanggal_lahir')->nullable();
             $table->timestamps();
+
+            // Index dasar untuk pencarian
+            $table->index('nama_pasien');
+            $table->index('nohp_pasien');
         });
     }
 

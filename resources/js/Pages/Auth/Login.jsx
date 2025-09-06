@@ -1,8 +1,9 @@
+// resources/js/Pages/Auth/Login.jsx
 import { Head, useForm } from '@inertiajs/react';
 import InputError from '@/Components/InputError';
 import { useEffect, useState } from 'react';
 
-export default function Login({ status }) {
+export default function Login() {
   const { data, setData, post, processing, errors, reset } = useForm({
     email: '',
     password: '',
@@ -39,15 +40,6 @@ export default function Login({ status }) {
   }, []);
 
   useEffect(() => {
-    if (status) {
-      setAlertType('info');
-      setAlertMessage(status);
-      setShowAlert(true);
-      setTimeout(() => setShowAlert(false), 5000);
-    }
-  }, [status]);
-
-  useEffect(() => {
     if (errors.email || errors.password) {
       setAlertType('error');
       setAlertMessage('Pastikan email dan password telah diisi dengan benar.');
@@ -64,24 +56,14 @@ export default function Login({ status }) {
       info: 'bg-blue-50 border-l-4 border-blue-400 text-blue-700',
       success: 'bg-green-50 border-l-4 border-green-400 text-green-700'
     };
-
-    const iconStyles = {
-      error: '⚠️',
-      info: 'ℹ️',
-      success: '✅'
-    };
+    const iconStyles = { error: '⚠️', info: 'ℹ️', success: '✅' };
 
     return (
       <div className={`${alertStyles[type]} p-4 mb-4 rounded-md shadow-sm animate-fade-in`}>
         <div className="flex items-center">
           <span className="text-lg mr-2">{iconStyles[type]}</span>
           <p className="text-sm font-medium">{message}</p>
-          <button 
-            onClick={() => setShowAlert(false)}
-            className="ml-auto text-lg hover:opacity-70 transition-opacity"
-          >
-            ×
-          </button>
+          <button onClick={() => setShowAlert(false)} className="ml-auto text-lg hover:opacity-70 transition-opacity">×</button>
         </div>
       </div>
     );
@@ -92,11 +74,7 @@ export default function Login({ status }) {
       <Head title="Login" />
       <div
         className="min-h-screen flex items-center justify-center"
-        style={{
-          backgroundImage: "url('/images/bg-optik.png')",
-          backgroundSize: 'cover',
-          backgroundRepeat: 'repeat',
-        }}
+        style={{ backgroundImage: "url('/images/bg-optik.png')", backgroundSize: 'cover', backgroundRepeat: 'repeat' }}
       >
         <div className="bg-[#FFE0D0] rounded-[32px] shadow-xl w-[90%] max-w-md p-8 md:p-10">
           <div className="flex flex-col items-center mb-8">
@@ -137,10 +115,7 @@ export default function Login({ status }) {
             </div>
 
             <div className="flex justify-end">
-              <a 
-                href={route('password.request')} 
-                className="text-sm text-orange-600 hover:text-orange-700 hover:underline font-medium transition-colors duration-200"
-              >
+              <a href={route('password.request')} className="text-sm text-orange-600 hover:text-orange-700 hover:underline font-medium transition-colors duration-200">
                 Lupa Password?
               </a>
             </div>
@@ -166,20 +141,13 @@ export default function Login({ status }) {
         </div>
       </div>
 
-      <style jsx>{`
+      {/* GANTI: gunakan <style> biasa, bukan <style jsx> */}
+      <style>{`
         @keyframes fade-in {
-          from {
-            opacity: 0;
-            transform: translateY(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-        .animate-fade-in {
-          animation: fade-in 0.3s ease-out;
-        }
+        .animate-fade-in { animation: fade-in 0.3s ease-out; }
       `}</style>
     </>
   );

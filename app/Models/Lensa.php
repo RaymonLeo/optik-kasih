@@ -7,15 +7,21 @@ use Illuminate\Database\Eloquent\Model;
 class Lensa extends Model
 {
     protected $table = 'lensa';
+    protected $primaryKey = 'id_lensa';
+    public $incrementing = true;
+    protected $keyType = 'int';
 
     protected $fillable = [
-        'nama_lensa', 'jenis_lensa', 'coating_lensa', 'indeks_lensa',
-        'cyl_kanan', 'axis_kanan', 'prism_kanan', 'base_kanan', 'add_kanan',
-        'sph_kiri', 'cyl_kiri', 'axis_kiri', 'prism_kiri', 'base_kiri'
+        'nama_lensa','jenis_lensa','coating_lensa','indeks_lensa',
+        'gambar_lensa','stok_lensa',
+        'sph_kanan','cyl_kanan','axis_kanan','prism_kanan','base_kanan','add_kanan',
+        'sph_kiri','cyl_kiri','axis_kiri','prism_kiri','base_kiri','add_kiri',
     ];
 
-    public function transaksi()
+    // helper kecil
+    public function getImageUrlAttribute(): ?string
     {
-        return $this->hasMany(Transaksi::class);
+        if (!$this->gambar_lensa) return null;
+        return asset('storage/'.$this->gambar_lensa);
     }
 }

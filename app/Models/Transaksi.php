@@ -15,23 +15,17 @@ class Transaksi extends Model
         'harga', 'panjar', 'sisa'
     ];
 
-    public function pasien()
-    {
-        return $this->belongsTo(Pasien::class);
-    }
+    protected $casts = [
+        'tanggal_pesan'   => 'date',
+        'tanggal_masuk'   => 'date',
+        'tanggal_selesai' => 'date',
+        'harga'  => 'decimal:2',
+        'panjar' => 'decimal:2',
+        'sisa'   => 'decimal:2',
+    ];
 
-    public function produk()
-    {
-        return $this->belongsTo(Produk::class);
-    }
-
-    public function kesehatan()
-    {
-        return $this->belongsTo(Kesehatan::class);
-    }
-
-    public function lensa()
-    {
-        return $this->belongsTo(Lensa::class);
-    }
+    public function pasien()    { return $this->belongsTo(Pasien::class); }
+    public function produk()    { return $this->belongsTo(Produk::class); }
+    public function kesehatan() { return $this->belongsTo(Kesehatan::class); }
+    public function lensa()     { return $this->belongsTo(Lensa::class, 'lensa_id', 'id_lensa'); }
 }

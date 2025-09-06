@@ -3,91 +3,74 @@
 namespace App\Http\Controllers;
 
 use App\Models\Kesehatan;
+use App\Models\Pasien;
 use Illuminate\Http\Request;
 
 class KesehatanController extends Controller
 {
-    public function index()
+    public function store(Request $request, Pasien $pasien)
     {
-        return response()->json(Kesehatan::with('pasien')->get(), 200);
+        $this->validateReq($request, true);
+
+        $payload = $this->mapToColumns($request, $pasien->id);
+        Kesehatan::create($payload);
+
+        return redirect()->route('pasien.show', $pasien)->with('success', 'Data mata berhasil ditambahkan.');
     }
 
-    public function store(Request $request)
+    public function update(Request $request, Kesehatan $kesehatan)
     {
-        $validated = $request->validate([
-            'pasien_id'         => 'required|exists:pasien,id',
-            'tanggal_periksa'   => 'required|date',
-            'sph_kanan'         => 'nullable|string',
-            'cyl_kanan'         => 'nullable|string',
-            'axis_kanan'        => 'nullable|string',
-            'prism_kanan'       => 'nullable|string',
-            'base_kanan'        => 'nullable|string',
-            'add_kanan'         => 'nullable|string',
-            'pd_kanan'          => 'nullable|string',
-            'sph_kiri'          => 'nullable|string',
-            'cyl_kiri'          => 'nullable|string',
-            'axis_kiri'         => 'nullable|string',
-            'prism_kiri'        => 'nullable|string',
-            'base_kiri'         => 'nullable|string',
-            'add_kiri'          => 'nullable|string',
-            'pd_kiri'           => 'nullable|string',
-        ]);
+        $this->validateReq($request, false);
 
-        $kesehatan = Kesehatan::create($validated);
-        return response()->json(['message' => 'Data kesehatan berhasil ditambahkan', 'data' => $kesehatan], 201);
+        $payload = $this->mapToColumns($request, $kesehatan->pasien_id);
+        $kesehatan->update($payload);
+
+        return redirect()->route('pasien.show', $kesehatan->pasien_id)->with('success', 'Data mata berhasil diupdate.');
     }
 
-    public function show($id)
+    public function destroy(Kesehatan $kesehatan)
     {
-        $kesehatan = Kesehatan::with('pasien')->find($id);
-
-        if (!$kesehatan) {
-            return response()->json(['message' => 'Data tidak ditemukan'], 404);
-        }
-
-        return response()->json($kesehatan);
-    }
-
-    public function update(Request $request, $id)
-    {
-        $kesehatan = Kesehatan::find($id);
-
-        if (!$kesehatan) {
-            return response()->json(['message' => 'Data tidak ditemukan'], 404);
-        }
-
-        $validated = $request->validate([
-            'pasien_id'         => 'required|exists:pasien,id',
-            'tanggal_periksa'   => 'required|date',
-            'sph_kanan'         => 'nullable|string',
-            'cyl_kanan'         => 'nullable|string',
-            'axis_kanan'        => 'nullable|string',
-            'prism_kanan'       => 'nullable|string',
-            'base_kanan'        => 'nullable|string',
-            'add_kanan'         => 'nullable|string',
-            'pd_kanan'          => 'nullable|string',
-            'sph_kiri'          => 'nullable|string',
-            'cyl_kiri'          => 'nullable|string',
-            'axis_kiri'         => 'nullable|string',
-            'prism_kiri'        => 'nullable|string',
-            'base_kiri'         => 'nullable|string',
-            'add_kiri'          => 'nullable|string',
-            'pd_kiri'           => 'nullable|string',
-        ]);
-
-        $kesehatan->update($validated);
-        return response()->json(['message' => 'Data berhasil diperbarui', 'data' => $kesehatan]);
-    }
-
-    public function destroy($id)
-    {
-        $kesehatan = Kesehatan::find($id);
-
-        if (!$kesehatan) {
-            return response()->json(['message' => 'Data tidak ditemukan'], 404);
-        }
-
+        $pasienId = $kesehatan->pasien_id;
         $kesehatan->delete();
-        return response()->json(['message' => 'Data berhasil dihapus']);
+
+        return redirect()->route('pasien.show', $pasienId)->with('success', 'Data mata telah dihapus.');
+    }
+
+    private function validateReq(Request $request, bool $requireDate): void
+    {
+        $request->validate([
+            'tanggal_periksa' => ($requireDate ? 'required' : 'sometimes') . '|date',
+            'kanan'           => 'nullable|array',
+            'kiri'            => 'nullable|array',
+            'kanan.*'         => 'nullable|string',
+            'kiri.*'          => 'nullable|string',
+        ]);
+    }
+
+    private function mapToColumns(Request $request, int $pasienId): array
+    {
+        $kanan = $request->input('kanan', []);
+        $kiri  = $request->input('kiri', []);
+
+        return [
+            'pasien_id'       => $pasienId,
+            'tanggal_periksa' => $request->input('tanggal_periksa'),
+
+            'sph_kanan' => $kanan['sph'] ?? null,
+            'cyl_kanan' => $kanan['cyl'] ?? null,
+            'axis_kanan'=> $kanan['axis'] ?? null,
+            'prism_kanan'=> $kanan['prism'] ?? null,
+            'base_kanan' => $kanan['base'] ?? null,
+            'add_kanan'  => $kanan['add'] ?? null,
+            'pd_kanan'   => $kanan['mpd'] ?? ($kanan['pd'] ?? null),
+
+            'sph_kiri'  => $kiri['sph'] ?? null,
+            'cyl_kiri'  => $kiri['cyl'] ?? null,
+            'axis_kiri' => $kiri['axis'] ?? null,
+            'prism_kiri'=> $kiri['prism'] ?? null,
+            'base_kiri' => $kiri['base'] ?? null,
+            'add_kiri'  => $kiri['add'] ?? null,
+            'pd_kiri'   => $kiri['mpd'] ?? ($kiri['pd'] ?? null),
+        ];
     }
 }

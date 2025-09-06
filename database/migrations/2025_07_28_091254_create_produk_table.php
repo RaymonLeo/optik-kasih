@@ -10,11 +10,15 @@ return new class extends Migration {
             $table->id();
             $table->string('nama_produk');
             $table->string('kategori_produk');
-            $table->integer('jumlah_produk');
+            $table->unsignedInteger('jumlah_produk')->default(0);
             $table->decimal('harga_produk', 12, 2);
             $table->string('gambar_produk')->nullable();
             $table->date('expired_produk')->nullable();
             $table->timestamps();
+
+            // Index dasar
+            $table->index('nama_produk');
+            $table->index('kategori_produk');
         });
     }
 
