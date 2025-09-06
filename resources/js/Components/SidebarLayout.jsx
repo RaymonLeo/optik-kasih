@@ -1,33 +1,34 @@
 // resources/js/Components/SidebarLayout.jsx
-import React, { useState, useMemo } from 'react';
-import { Link, router, usePage } from '@inertiajs/react';
-import { Menu, X, Home, Users, Receipt, Package, Settings, LogOut, Eye } from 'lucide-react';
+import React, { useMemo, useState } from "react";
+import { Link, router, usePage } from "@inertiajs/react";
+import { Menu, X, Home, Users, Receipt, Package, Eye, Settings, LogOut } from "lucide-react";
 
-export default function SidebarLayout({ children, title = 'Dashboard' }) {
+export default function SidebarLayout({ children, title = "Dashboard" }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const { url } = usePage(); // current path
+  const { url } = usePage(); // path saat ini, misal: "/transaksi?date=...";
 
-  const isActive = (pattern) => url.startsWith(pattern);
+  const isActive = (href) => url.startsWith(href);
 
   const menuItems = useMemo(
     () => [
-      { name: 'Dashboard',     icon: <Home size={20} />,    href: '/dashboard',  active: isActive('/dashboard') },
-      { name: 'Pasien',        icon: <Users size={20} />,   href: '/pasien',     active: isActive('/pasien') },
-      { name: 'Bon Transaksi', icon: <Receipt size={20} />, href: '/transaksi',  active: isActive('/transaksi') },
-      { name: 'Lensa',         icon: <Eye size={20} />,     href: '/lensa',      active: isActive('/lensa') },
-      { name: 'Produk',        icon: <Package size={20} />, href: '/produk',     active: isActive('/produk') },
+      { name: "Dashboard",     icon: <Home size={20} />,    href: "/dashboard",  active: isActive("/dashboard") },
+      { name: "Pasien",        icon: <Users size={20} />,   href: "/pasien",     active: isActive("/pasien") },
+      { name: "Bon Transaksi", icon: <Receipt size={20} />, href: "/transaksi",  active: isActive("/transaksi") }, // <= penting: /transaksi
+      { name: "Lensa",         icon: <Eye size={20} />,     href: "/lensa",      active: isActive("/lensa") },
+      { name: "Produk",        icon: <Package size={20} />, href: "/produk",     active: isActive("/produk") },
     ],
     [url]
   );
 
   const handleLogout = () => {
     setShowLogoutModal(false);
-    router.post('/logout');
+    router.post("/logout");
   };
 
   return (
     <div className="flex h-screen bg-gray-50 relative">
+      {/* overlay mobile */}
       {isSidebarOpen && (
         <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)} />
       )}
@@ -35,7 +36,7 @@ export default function SidebarLayout({ children, title = 'Dashboard' }) {
       {/* SIDEBAR */}
       <aside
         className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white shadow-xl transform transition-transform duration-300 ease-in-out
-        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+        ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
       >
         <div className="flex flex-col h-full">
           {/* LOGO */}
@@ -59,18 +60,20 @@ export default function SidebarLayout({ children, title = 'Dashboard' }) {
                 key={item.name}
                 href={item.href}
                 className={`w-full flex items-center px-4 py-3 rounded-lg transition-all
-                  ${item.active
-                    ? 'bg-orange-100 text-orange-700 border-r-4 border-orange-500'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'}`}
+                  ${
+                    item.active
+                      ? "bg-orange-100 text-orange-700 border-r-4 border-orange-500"
+                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-800"
+                  }`}
                 onClick={() => window.innerWidth < 1024 && setIsSidebarOpen(false)}
               >
-                <span className={`mr-3 ${item.active ? 'text-orange-600' : 'text-gray-500'}`}>{item.icon}</span>
+                <span className={`mr-3 ${item.active ? "text-orange-600" : "text-gray-500"}`}>{item.icon}</span>
                 <span className="font-medium">{item.name}</span>
               </Link>
             ))}
           </nav>
 
-          {/* BOTTOM */}
+          {/* FOOTER */}
           <div className="p-4 border-t border-gray-200 space-y-1">
             <button className="w-full flex items-center px-4 py-3 text-gray-600 hover:bg-gray-100 rounded-lg">
               <Settings size={20} className="mr-3" />
@@ -127,10 +130,7 @@ export default function SidebarLayout({ children, title = 'Dashboard' }) {
               >
                 Batal
               </button>
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
-              >
+              <button onClick={handleLogout} className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">
                 Ya, Logout
               </button>
             </div>

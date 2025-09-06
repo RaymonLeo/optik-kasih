@@ -1,6 +1,7 @@
 // resources/js/Pages/Transaksi/Create.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, router, useForm } from "@inertiajs/react";
+import SidebarLayout from "@/Components/SidebarLayout";
 
 function Section({ title, children }) {
   return (
@@ -414,3 +415,6 @@ export default function Create({ mode = "create", prefill = null }) {
     </div>
   );
 }
+
+// pasang layout
+Create.layout = (page) => <SidebarLayout title="Input Transaksi">{page}</SidebarLayout>;

@@ -1,6 +1,7 @@
 // resources/js/Pages/Transaksi/Show.jsx
 import React from "react";
 import { Link, usePage } from "@inertiajs/react";
+import SidebarLayout from "@/Components/SidebarLayout";
 
 function Currency({ v }) {
   return <span>{Number(v||0).toLocaleString("id-ID", { style:"currency", currency:"IDR", maximumFractionDigits:0 })}</span>;
@@ -103,3 +104,6 @@ export default function Show() {
     </div>
   );
 }
+
+// pasang layout
+Show.layout = (page) => <SidebarLayout title="Detail Transaksi">{page}</SidebarLayout>;

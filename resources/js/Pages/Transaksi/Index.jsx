@@ -1,6 +1,7 @@
 // resources/js/Pages/Transaksi/Index.jsx
 import React, { useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
+import SidebarLayout from "@/Components/SidebarLayout";
 
 function Currency({ value }) {
   const number = Number(value || 0);
@@ -117,3 +118,6 @@ export default function Index() {
     </div>
   );
 }
+
+// pasang layout
+Index.layout = (page) => <SidebarLayout title="Daftar Transaksi">{page}</SidebarLayout>;
