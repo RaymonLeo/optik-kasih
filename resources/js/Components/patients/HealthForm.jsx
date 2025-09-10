@@ -3,7 +3,6 @@ import React, { useMemo } from 'react';
 
 /* Util */
 const fmtSigned = (n) => (n > 0 ? `+${n.toFixed(2)}` : n < 0 ? n.toFixed(2) : '0.00');
-const fmtSignedInt = (n) => (n > 0 ? `+${n}.00` : n < 0 ? `${n}.00` : '0.00');
 
 const rangeInt = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
 const rangeStep = (from, to, step) => {
@@ -44,9 +43,9 @@ export default function HealthForm({ value, onChange, error }) {
   const setSide = (side, field, val) => onChange({ ...v, [side]: { ...(v[side] || {}), [field]: val } });
 
   // === OPTIONS (memoized) ===
-  // SPH/CYL: -30 .. +30 langkah 1.00
+  // SPH/CYL: -30 .. +30 langkah 0.25 (ADA -1.25, -1.50, -1.75, lalu -2.00, dst)
   const sphCylOptions = useMemo(
-    () => rangeInt(-30, 30).map((n) => ({ value: n.toFixed(2), label: fmtSignedInt(n) })),
+    () => rangeStep(-30, 30, 0.25).map((n) => ({ value: n.toFixed(2), label: fmtSigned(n) })),
     []
   );
 
@@ -56,14 +55,13 @@ export default function HealthForm({ value, onChange, error }) {
     []
   );
 
-  // PRISM: 0..10 langkah 0.5
-  // NOTE: kalau mau boleh negatif, ganti ke rangeStep(-10, 10, 0.5)
+  // PRISM: 0..10 langkah 0.5 (kalau mau negatif, ganti rangeStep(-10,10,0.5))
   const prismOptions = useMemo(
     () => rangeStep(0, 10, 0.5).map((n) => ({ value: n.toFixed(2), label: n.toFixed(2) })),
     []
   );
 
-  // BASE (nilai konsisten uppercase, label title case)
+  // BASE
   const baseOptions = useMemo(
     () => ([
       { value: 'UP',   label: 'Up'   },

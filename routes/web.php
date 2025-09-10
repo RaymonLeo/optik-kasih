@@ -12,6 +12,12 @@ use App\Http\Controllers\ProdukController;
 use App\Http\Controllers\LensaController;
 use App\Http\Controllers\TransaksiController;
 
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+*/
+
 Route::get('/', function () {
     return Inertia::render('Welcome', [
         'canLogin'       => Route::has('login'),
@@ -22,35 +28,52 @@ Route::get('/', function () {
 })->name('home');
 
 Route::middleware('auth')->group(function () {
+    // Dashboard
     Route::get('/dashboard', fn () => Inertia::render('Dashboard'))->name('dashboard');
 
     // Profile
-    Route::get('/profile',   [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile',[ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::get   ('/profile',  [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch ('/profile',  [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile',  [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-    // Inertia pages
-    Route::resource('pasien', PasienController::class);
-    Route::resource('produk', ProdukController::class);
-    Route::resource('lensa',  LensaController::class);
-    Route::resource('transaksi', TransaksiController::class);
+    /*
+    |----------------------------------------------------------------------
+    | Inertia pages (CRUD)
+    |----------------------------------------------------------------------
+    */
+    Route::resource('pasien',     PasienController::class);
+    Route::resource('produk',     ProdukController::class);
+    Route::resource('lensa',      LensaController::class);
+    Route::resource('transaksi',  TransaksiController::class);
 
-    // daftar transaksi milik satu pasien (opsional, untuk tombol di detail pasien)
+    // Daftar transaksi milik satu pasien (untuk tombol di halaman detail pasien)
     Route::get('transaksi/pasien/{patient}', [TransaksiController::class, 'byPatient'])
         ->name('transaksi.byPatient');
 
-    // kesehatan nested (create saja), update/destroy pakai id tunggal
-    Route::resource('pasien.kesehatan', KesehatanController::class)->only(['store'])->shallow();
-    Route::put   ('/kesehatan/{kesehatan}', [KesehatanController::class, 'update'])->name('kesehatan.update');
-    Route::delete('/kesehatan/{kesehatan}', [KesehatanController::class, 'destroy'])->name('kesehatan.destroy');
+    /*
+    |----------------------------------------------------------------------
+    | Kesehatan (nested di pasien: create/store saja), update & delete pakai id tunggal
+    |----------------------------------------------------------------------
+    */
+    Route::resource('pasien.kesehatan', KesehatanController::class)
+        ->only(['store'])
+        ->shallow();
 
-    // --- API kecil untuk form ---
-    Route::get('api/patient/by-code/{kode}',   [TransaksiController::class, 'patientByCode'])->name('api.patient.byCode');
-    Route::get('api/patient/search',           [TransaksiController::class, 'searchPatients'])->name('api.patient.search');
-    Route::get('api/patient/{patient}/exams',  [TransaksiController::class, 'patientExams'])->name('api.patient.exams');
+    Route::put   ('/kesehatan/{kesehatan}',   [KesehatanController::class, 'update'])->name('kesehatan.update');
+    Route::delete('/kesehatan/{kesehatan}',   [KesehatanController::class, 'destroy'])->name('kesehatan.destroy');
 
-    // autocomplete lensa (opsional, dipakai kalau mau dropdown pada Transaksi)
+    /*
+    |----------------------------------------------------------------------
+    | API kecil untuk kebutuhan form (AJAX)
+    |----------------------------------------------------------------------
+    */
+    // Auto-isi pasien dari kode, dropdown search, dan daftar/perincian pemeriksaan
+    Route::get('api/patient/by-code/{kode}',  [TransaksiController::class, 'patientByCode'])->name('api.patient.byCode');
+    Route::get('api/patient/search',          [TransaksiController::class, 'searchPatients'])->name('api.patient.search');
+    Route::get('api/patient/{patient}/exams', [TransaksiController::class, 'patientExams'])->name('api.patient.exams');
+
+    // Autocomplete lensa (opsional)
     Route::get('api/lensa/search', [LensaController::class, 'search'])->name('api.lensa.search');
 });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';

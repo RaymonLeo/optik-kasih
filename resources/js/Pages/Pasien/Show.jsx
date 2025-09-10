@@ -1,5 +1,6 @@
+// resources/js/Pages/Pasien/Show.jsx
 import React, { useState } from "react";
-import { Head, usePage, router } from "@inertiajs/react";
+import { Head, usePage, router, Link } from "@inertiajs/react";
 import Modal from "@/Components/ui/Modal";
 import ConfirmDialog from "@/Components/ui/ConfirmDialog";
 import Toast from "@/Components/ui/Toast";
@@ -71,7 +72,15 @@ function Show() {
           </div>
         </div>
 
-        <div className="mb-4 flex justify-end">
+        <div className="mb-4 flex gap-3 justify-end">
+          {/* ⬇️ Tombol Riwayat Transaksi */}
+          <Link
+            href={route("transaksi.byPatient", patient.id)}
+            className="rounded-xl bg-gray-900 px-4 py-2 text-white shadow hover:bg-gray-800"
+          >
+            Riwayat Transaksi
+          </Link>
+
           <button
             onClick={()=>{ setForm(emptyForm); setError(""); setAddOpen(true); }}
             className="rounded-xl bg-orange-600 px-4 py-2 text-white shadow hover:bg-orange-700"

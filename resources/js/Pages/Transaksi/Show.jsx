@@ -1,109 +1,190 @@
-// resources/js/Pages/Transaksi/Show.jsx
-import React from "react";
-import { Link, usePage } from "@inertiajs/react";
+// resources/js/Pages/Pasien/Show.jsx
+import React, { useState } from "react";
+import { Head, usePage, router, Link } from "@inertiajs/react";
+import Modal from "@/Components/ui/Modal";
+import ConfirmDialog from "@/Components/ui/ConfirmDialog";
+import Toast from "@/Components/ui/Toast";
+import HealthForm from "@/Components/patients/HealthForm";
 import SidebarLayout from "@/Components/SidebarLayout";
 
-function Currency({ v }) {
-  return <span>{Number(v||0).toLocaleString("id-ID", { style:"currency", currency:"IDR", maximumFractionDigits:0 })}</span>;
-}
-
-export default function Show() {
+function Show() {
   const { props } = usePage();
-  const { trx, rx = [], items = [] } = props;
+  const patient = props.patient;
+  const healths = props.healths || [];
+
+  const emptyForm = { tanggal_periksa: "", kanan: {}, kiri: {} };
+  const [form, setForm] = useState(emptyForm);
+  const [error, setError] = useState("");
+
+  const [addOpen, setAddOpen] = useState(false);
+  const [editRow, setEditRow] = useState(null);
+  const [toDelete, setToDelete] = useState(null);
+  const [toast, setToast] = useState({ open:false, type:"success", message:"" });
+
+  const validate = (v) => (!v.tanggal_periksa ? "Tanggal periksa wajib diisi." : "");
+
+  // Tambah
+  const doCreate = () => {
+    const msg = validate(form); if (msg) { setError(msg); return; }
+    router.post(route("pasien.kesehatan.store", patient.id), form, {
+      preserveScroll: true,
+      onSuccess: () => { setAddOpen(false); setToast({ open:true, type:"success", message:"Data mata berhasil ditambahkan!" }); router.reload({ only:["healths"] }); },
+      onError:   () => setError("Periksa input."),
+    });
+  };
+
+  // Edit
+  const openEdit = (row) => {
+    setEditRow(row);
+    setForm({ tanggal_periksa: row.tanggal_periksa || "", kanan: row.kanan || {}, kiri: row.kiri || {} });
+    setError("");
+  };
+  const doUpdate = () => {
+    const msg = validate(form); if (msg) { setError(msg); return; }
+    router.put(route("kesehatan.update", editRow.id), form, {
+      preserveScroll: true,
+      onSuccess: () => { setEditRow(null); setToast({ open:true, type:"success", message:"Data mata berhasil diupdate!" }); router.reload({ only:["healths"] }); },
+      onError:   () => setError("Periksa input."),
+    });
+  };
+
+  // Hapus
+  const doDelete = () => {
+    router.delete(route("kesehatan.destroy", toDelete.id), {
+      preserveScroll: true,
+      onSuccess: () => { setToDelete(null); setToast({ open:true, type:"success", message:"Data mata telah dihapus." }); router.reload({ only:["healths"] }); },
+    });
+  };
 
   return (
-    <div className="p-6">
-      <div className="flex items-center gap-4 mb-6">
-        <Link href={route("transaksi.index")} className="text-orange-600 font-semibold">← Kembali</Link>
-        <h1 className="text-4xl font-extrabold text-orange-500">Detail Transaksi</h1>
-      </div>
+    <>
+      <Head title="Detail Pasien" />
+      <div className="p-0">
+        <div className="mb-4 flex items-center justify-between">
+          <button onClick={()=>history.back()} className="text-orange-700 hover:underline">← Kembali</button>
+          <Link
+            href={route("transaksi.byPatient", patient.id)}
+            className="rounded-xl bg-gray-900 px-4 py-2 text-white hover:bg-gray-800"
+          >
+            Lihat Transaksi Pasien
+          </Link>
+        </div>
 
-      <div className="bg-white border rounded-xl p-4">
-        <div className="grid md:grid-cols-2 gap-4">
-          <div>
-            <p>Id Pasien : <b>{trx.pasien?.kode_pasien || "-"}</b></p>
-            <p>Nama Pasien : <b>{trx.pasien?.nama_pasien || "-"}</b></p>
-            <p>Alamat : {trx.pasien?.alamat || "-"}</p>
-            <p>No Hp : {trx.pasien?.telepon || "-"}</p>
-            <p>Frame : <b>{trx.frame || "-"}</b></p>
-            <p>Lensa : <b>{trx.lensa || "-"}</b></p>
-          </div>
-          <div>
-            <p>Tanggal Pesanan : <b>{trx.tanggal_pesanan}</b></p>
-            <p>Tanggal Selesai : <b>{trx.tanggal_selesai || "-"}</b></p>
+        <div className="mb-6 rounded-2xl border bg-white p-6 shadow-sm">
+          <div className="grid gap-2 md:grid-cols-2">
+            <div><span className="font-semibold">Kode Pasien :</span> {patient.kode_pasien || '—'}</div>
+            <div><span className="font-semibold">Tanggal Buat :</span> {patient.tanggal_buat || '-'}</div>
+            <div><span className="font-semibold">Nama Pasien :</span> {patient.nama_pasien}</div>
+            <div><span className="font-semibold">No Hp :</span> {patient.nohp_pasien || '-'}</div>
+            <div className="md:col-span-2"><span className="font-semibold">Alamat :</span> {patient.alamat_pasien || '-'}</div>
           </div>
         </div>
 
-        {rx.length > 0 && (
-          <div className="mt-4 overflow-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-violet-50">
-                <tr>
-                  <th className="px-3 py-2 text-left">RX</th>
-                  {["SPH","CYL","AXIS","PRISM","BASE","ADD","MPD"].map(h => (
-                    <th key={h} className="px-2 py-2 text-left">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rx.map(r => (
-                  <tr key={r.eye} className="border-t">
-                    <td className="px-3 py-2 font-semibold">{r.eye}</td>
-                    {["SPH","CYL","AXIS","PRISM","BASE","ADD","MPD"].map(f => (
-                      <td key={f} className="px-2 py-2">{r[f]}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <div className="mb-4 flex justify-end">
+          <button
+            onClick={()=>{ setForm(emptyForm); setError(""); setAddOpen(true); }}
+            className="rounded-xl bg-orange-600 px-4 py-2 text-white shadow hover:bg-orange-700"
+          >
+            + Tambah Data Kesehatan Mata
+          </button>
+        </div>
 
-        {items.length > 0 && (
-          <div className="mt-6">
-            <h3 className="font-semibold mb-2">Item Produk</h3>
-            <table className="w-full text-sm border rounded">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-2 py-2 text-left">Nama</th>
-                  <th className="px-2 py-2 text-left">Qty</th>
-                  <th className="px-2 py-2 text-left">Harga</th>
-                  <th className="px-2 py-2 text-right">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((it,i)=>(
-                  <tr key={i} className="border-t">
-                    <td className="px-2 py-2">{it.nama}</td>
-                    <td className="px-2 py-2">{it.qty}</td>
-                    <td className="px-2 py-2"><Currency v={it.harga} /></td>
-                    <td className="px-2 py-2 text-right"><Currency v={it.subtotal} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <div className="space-y-6">
+          {healths.map((row) => (
+            <div key={row.id} className="rounded-2xl border bg-rose-50/50 p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="font-semibold">Tanggal Periksa: {row.tanggal_periksa || "-"}</div>
+                <div className="flex gap-2">
+                  <button onClick={()=>openEdit(row)} className="rounded-lg bg-yellow-300 px-3 py-1.5 text-sm hover:bg-yellow-400">✏️ Edit</button>
+                  <button onClick={()=>setToDelete(row)} className="rounded-lg bg-rose-500 px-3 py-1.5 text-sm text-white hover:bg-rose-600">🗑 Delete</button>
+                </div>
+              </div>
 
-        <div className="mt-6 max-w-md">
-          <div className="flex items-center justify-between">
-            <span>Harga</span>
-            <b><Currency v={trx.harga} /></b>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Panjar</span>
-            <b><Currency v={trx.panjar} /></b>
-          </div>
-          <div className="border-t my-2" />
-          <div className="flex items-center justify-between text-lg">
-            <span>Total</span>
-            <b><Currency v={trx.total} /></b>
-          </div>
+              <div className="overflow-hidden rounded-xl border bg-white">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-violet-50 text-gray-700">
+                    <tr>
+                      <th className="px-3 py-2 text-left">RX</th>
+                      <th className="px-3 py-2 text-left">SPH</th>
+                      <th className="px-3 py-2 text-left">CYL</th>
+                      <th className="px-3 py-2 text-left">AXIS</th>
+                      <th className="px-3 py-2 text-left">PRISM</th>
+                      <th className="px-3 py-2 text-left">BASE</th>
+                      <th className="px-3 py-2 text-left">ADD</th>
+                      <th className="px-3 py-2 text-left">MPD</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-t">
+                      <td className="px-3 py-2 font-semibold">OD</td>
+                      <td className="px-3 py-2">{row.kanan?.sph ?? 0}</td>
+                      <td className="px-3 py-2">{row.kanan?.cyl ?? 0}</td>
+                      <td className="px-3 py-2">{row.kanan?.axis ?? 0}</td>
+                      <td className="px-3 py-2">{row.kanan?.prism ?? 0}</td>
+                      <td className="px-3 py-2">{row.kanan?.base ?? 0}</td>
+                      <td className="px-3 py-2">{row.kanan?.add ?? 0}</td>
+                      <td className="px-3 py-2">{row.kanan?.mpd ?? 0}</td>
+                    </tr>
+                    <tr className="border-t">
+                      <td className="px-3 py-2 font-semibold">OS</td>
+                      <td className="px-3 py-2">{row.kiri?.sph ?? 0}</td>
+                      <td className="px-3 py-2">{row.kiri?.cyl ?? 0}</td>
+                      <td className="px-3 py-2">{row.kiri?.axis ?? 0}</td>
+                      <td className="px-3 py-2">{row.kiri?.prism ?? 0}</td>
+                      <td className="px-3 py-2">{row.kiri?.base ?? 0}</td>
+                      <td className="px-3 py-2">{row.kiri?.add ?? 0}</td>
+                      <td className="px-3 py-2">{row.kiri?.mpd ?? 0}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+
+          {!healths.length && (
+            <div className="rounded-xl border bg-white p-6 text-center text-gray-500">
+              Belum ada riwayat kesehatan mata.
+            </div>
+          )}
         </div>
       </div>
-    </div>
+
+      {/* Modal Tambah */}
+      <Modal open={addOpen} onClose={()=>setAddOpen(false)} width="max-w-6xl">
+        <div className="p-6">
+          <h3 className="text-2xl font-bold text-orange-700">Tambah Data Kesehatan Mata Pasien</h3>
+          <div className="mt-4"><HealthForm value={form} onChange={setForm} error={error} /></div>
+          <div className="mt-6 flex justify-end gap-3">
+            <button onClick={()=>setAddOpen(false)} className="rounded-lg border px-4 py-2">Batal</button>
+            <button onClick={doCreate} className="rounded-lg bg-orange-600 px-4 py-2 text-white hover:bg-orange-700">+ Tambah</button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal Edit */}
+      <Modal open={!!editRow} onClose={()=>setEditRow(null)} width="max-w-6xl">
+        <div className="p-6">
+          <h3 className="text-2xl font-bold text-orange-700">Edit Data Kesehatan Mata Pasien</h3>
+        </div>
+        <div className="px-6"><HealthForm value={form} onChange={setForm} error={error} /></div>
+        <div className="p-6 flex justify-end gap-3">
+          <button onClick={()=>setEditRow(null)} className="rounded-lg border px-4 py-2">Batal</button>
+          <button onClick={doUpdate} className="rounded-lg bg-orange-600 px-4 py-2 text-white hover:bg-orange-700">Simpan</button>
+        </div>
+      </Modal>
+
+      <ConfirmDialog
+        open={!!toDelete}
+        danger
+        title="Apakah anda ingin Menghapus data?"
+        description="Data akan dihapus secara permanen. Yakin?"
+        confirmText="Hapus"
+        onCancel={()=>setToDelete(null)}
+        onConfirm={doDelete}
+      />
+      <Toast open={toast.open} type={toast.type} message={toast.message} onClose={()=>setToast((s)=>({...s,open:false}))}/>
+    </>
   );
 }
-
-// pasang layout
-Show.layout = (page) => <SidebarLayout title="Detail Transaksi">{page}</SidebarLayout>;
+Show.layout = (page) => <SidebarLayout title="Detail Pasien">{page}</SidebarLayout>;
+export default Show;

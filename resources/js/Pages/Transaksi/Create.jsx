@@ -124,7 +124,7 @@ export default function Create({ mode = "create", prefill = null }) {
   const [examDates, setExamDates] = useState([]);
   useEffect(() => {
     if (!data.pasien?.id) { setExamDates([]); return; }
-    fetch(route("api.patient.exams", data.pasien.id))
+    fetch(route("api.patient.exams", { patient: data.pasien.id }))
       .then(r => r.ok ? r.json() : [])
       .then(list => setExamDates(list || []))
       .catch(() => setExamDates([]));
@@ -133,7 +133,7 @@ export default function Create({ mode = "create", prefill = null }) {
   async function onPickExamDate(tgl) {
     setData("exam_date", tgl);
     if (!tgl || !data.pasien?.id) return;
-    const url = route("api.patient.exams", data.pasien.id) + `?date=${encodeURIComponent(tgl)}`;
+    const url = route("api.patient.exams", { patient: data.pasien.id }) + `?date=${encodeURIComponent(tgl)}`;
     const res = await fetch(url);
     if (!res.ok) return;
     const ex = await res.json();
