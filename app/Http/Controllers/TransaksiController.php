@@ -16,35 +16,67 @@ class TransaksiController extends Controller
     // ----------------- PAGE: INDEX -----------------
     public function index(Request $r)
     {
-        // filter: range = all|day|week|month|custom
+        // range: all|day|week|month|year|custom
         $range  = $r->get('range', 'day');
         $date   = $r->get('date');
         $search = $r->get('search');
 
-        $q = Transaksi::query()->with(['pasien:id,nama_pasien,kode_pasien', 'lensa:id_lensa,nama_lensa']);
+        $q = Transaksi::query()
+            ->with(['pasien:id,nama_pasien,kode_pasien', 'lensa:id_lensa,nama_lensa']);
 
+        // Anchor tanggal untuk semua mode yang butuh tanggal
         $anchor = $date ? Carbon::parse($date) : now();
-        if ($range === 'day') {
-            $q->whereDate('tanggal_pesan', $anchor->toDateString());
-        } elseif ($range === 'week') {
-            $q->whereBetween('tanggal_pesan', [$anchor->copy()->startOfWeek(), $anchor->copy()->endOfWeek()]);
-        } elseif ($range === 'month') {
-            $q->whereYear('tanggal_pesan', $anchor->year)->whereMonth('tanggal_pesan', $anchor->month);
-        } elseif ($range === 'custom' && $date) {
-            $to = $r->get('to', $anchor->toDateString());
-            $q->whereBetween('tanggal_pesan', [$anchor->toDateString(), Carbon::parse($to)->toDateString()]);
+
+        switch ($range) {
+            case 'day':
+                $q->whereDate('tanggal_pesan', $anchor->toDateString());
+                break;
+
+            case 'week':
+                $q->whereBetween('tanggal_pesan', [
+                    $anchor->copy()->startOfWeek(), $anchor->copy()->endOfWeek()
+                ]);
+                break;
+
+            case 'month':
+                $q->whereYear('tanggal_pesan', $anchor->year)
+                  ->whereMonth('tanggal_pesan', $anchor->month);
+                break;
+
+            case 'year':
+                $q->whereYear('tanggal_pesan', $anchor->year);
+                break;
+
+            case 'custom':
+                if ($date) {
+                    $to = $r->get('to', $anchor->toDateString());
+                    $q->whereBetween('tanggal_pesan', [
+                        $anchor->toDateString(), Carbon::parse($to)->toDateString()
+                    ]);
+                }
+                break;
+
+            case 'all':
+            default:
+                // tanpa filter tanggal
+                break;
         }
 
+        // search
         if ($search) {
             $q->where(function ($x) use ($search) {
                 $x->where('id', 'like', "%$search%")
                   ->orWhere('lensa_pelanggan', 'like', "%$search%")
                   ->orWhere('gagang_pelanggan', 'like', "%$search%")
-                  ->orWhereHas('pasien', fn($p) => $p->where('nama_pasien', 'like', "%$search%"));
+                  ->orWhereHas('pasien', fn ($p) => $p->where('nama_pasien', 'like', "%$search%"));
             });
         }
 
-        $transactions = $q->orderByDesc('id')->paginate(10)->withQueryString()
+        // Total sesuai filter (pakai query yang sama)
+        $totalFilter = (clone $q)->sum('harga');
+
+        $transactions = $q->orderByDesc('id')
+            ->paginate(10)->withQueryString()
             ->through(function (Transaksi $t) {
                 return [
                     'id'              => $t->id,
@@ -56,11 +88,10 @@ class TransaksiController extends Controller
                 ];
             });
 
-        $totalHariIni = (clone $q)->sum('harga');
-
         return Inertia::render('Transaksi/Index', [
             'transactions' => $transactions,
-            'totalHariIni' => $totalHariIni,
+            // nama prop dipertahankan untuk kompatibilitas UI
+            'totalHariIni' => $totalFilter,
             'query' => [
                 'range'  => $range,
                 'date'   => $anchor->toDateString(),
@@ -164,7 +195,7 @@ class TransaksiController extends Controller
                 'PRISM'=> $transaksi->kesehatan->prism_kanan,
                 'BASE' => $transaksi->kesehatan->base_kanan,
                 'ADD'  => $transaksi->kesehatan->add_kanan,
-                'MPD'  => $transaksi->kesehatan->pd_kanan, // ✅ pakai kolom PD
+                'MPD'  => $transaksi->kesehatan->pd_kanan, // konsisten PD
             ];
             $rx[] = [
                 'eye'  => 'OS',
@@ -174,7 +205,7 @@ class TransaksiController extends Controller
                 'PRISM'=> $transaksi->kesehatan->prism_kiri,
                 'BASE' => $transaksi->kesehatan->base_kiri,
                 'ADD'  => $transaksi->kesehatan->add_kiri,
-                'MPD'  => $transaksi->kesehatan->pd_kiri,   // ✅ pakai kolom PD
+                'MPD'  => $transaksi->kesehatan->pd_kiri,   // konsisten PD
             ];
         }
 
@@ -239,7 +270,7 @@ class TransaksiController extends Controller
                     'PRISM'=> $transaksi->kesehatan->prism_kanan,
                     'BASE' => $transaksi->kesehatan->base_kanan,
                     'ADD'  => $transaksi->kesehatan->add_kanan,
-                    'MPD'  => $transaksi->kesehatan->pd_kanan, // ✅ pakai kolom PD
+                    'MPD'  => $transaksi->kesehatan->pd_kanan, // konsisten PD
                 ],
                 'OS' => [
                     'SPH'  => $transaksi->kesehatan->sph_kiri,
@@ -248,7 +279,7 @@ class TransaksiController extends Controller
                     'PRISM'=> $transaksi->kesehatan->prism_kiri,
                     'BASE' => $transaksi->kesehatan->base_kiri,
                     'ADD'  => $transaksi->kesehatan->add_kiri,
-                    'MPD'  => $transaksi->kesehatan->pd_kiri,  // ✅ pakai kolom PD
+                    'MPD'  => $transaksi->kesehatan->pd_kiri,  // konsisten PD
                 ],
             ];
         }
@@ -276,6 +307,7 @@ class TransaksiController extends Controller
             ]);
 
             $pasien = Pasien::where('kode_pasien', $data['kode_pasien'])->firstOrFail();
+
             $kesehatanId = null;
             if (!empty($data['exam_date'])) {
                 $kesehatanId = Kesehatan::where('pasien_id', $pasien->id)
@@ -300,6 +332,7 @@ class TransaksiController extends Controller
             return redirect()->route('transaksi.show', $transaksi->id)->with('success', 'Transaksi diperbarui');
         }
 
+        // produk lain
         $data = $r->validate([
             'tanpa_pasien'     => ['boolean'],
             'kode_pasien'      => ['nullable', 'string'],
@@ -382,6 +415,7 @@ class TransaksiController extends Controller
 
     // ====================== API ======================
 
+    // Auto-isi by KODE PASIEN
     public function patientByCode(string $kode)
     {
         $p = Pasien::where('kode_pasien', $kode)->first();
@@ -396,6 +430,7 @@ class TransaksiController extends Controller
         ]);
     }
 
+    // Dropdown search kode/nama pasien
     public function searchPatients(Request $r)
     {
         $term = trim($r->query('term', ''));
@@ -414,14 +449,16 @@ class TransaksiController extends Controller
     // Daftar tanggal pemeriksaan & detail RX pada ?date=
     public function patientExams(Request $r, Pasien $patient)
     {
+        // daftar tanggal
         if (!$r->has('date')) {
             $dates = $patient->kesehatan()
                 ->orderByDesc('tanggal_periksa')
                 ->pluck('tanggal_periksa')
-                ->map(fn($d) => $d->format('Y-m-d'));
+                ->map(fn ($d) => $d->format('Y-m-d'));
             return response()->json($dates);
         }
 
+        // detail RX pada tanggal tertentu
         $exam = $patient->kesehatan()
             ->whereDate('tanggal_periksa', $r->query('date'))
             ->first();
@@ -439,7 +476,7 @@ class TransaksiController extends Controller
                     'PRISM'=> $exam->prism_kanan,
                     'BASE' => $exam->base_kanan,
                     'ADD'  => $exam->add_kanan,
-                    'MPD'  => $exam->pd_kanan, // ✅ konsisten PD
+                    'MPD'  => $exam->pd_kanan, // konsisten PD
                 ],
                 'OS' => [
                     'SPH'  => $exam->sph_kiri,
@@ -448,7 +485,7 @@ class TransaksiController extends Controller
                     'PRISM'=> $exam->prism_kiri,
                     'BASE' => $exam->base_kiri,
                     'ADD'  => $exam->add_kiri,
-                    'MPD'  => $exam->pd_kiri,  // ✅ konsisten PD
+                    'MPD'  => $exam->pd_kiri,  // konsisten PD
                 ],
             ],
         ]);
