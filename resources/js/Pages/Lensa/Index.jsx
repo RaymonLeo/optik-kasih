@@ -20,7 +20,7 @@ export default function Index() {
 
   function apply(e){
     e.preventDefault();
-    router.get(route('lensa.index'), { search }, { preserveState:true, replace:true });
+    router.get(route('admin.lensa.index'), { search }, { preserveState:true, replace:true });
   }
 
   return (
@@ -35,7 +35,7 @@ export default function Index() {
           />
           <button className="h-10 px-4 rounded-lg bg-gray-900 text-white">Cari</button>
           <div className="ml-auto">
-            <Link href={route('lensa.create')} className="h-10 px-4 rounded-lg bg-orange-500 text-white flex items-center">+ Tambah Lensa</Link>
+            <Link href={route('admin.lensa.create')} className="h-10 px-4 rounded-lg bg-orange-500 text-white flex items-center">+ Tambah Lensa</Link>
           </div>
         </form>
 
@@ -67,11 +67,11 @@ export default function Index() {
               </div>
 
               <div className="mt-4 flex justify-end gap-2">
-                <Link href={route('lensa.edit', card.id_lensa)} className="px-3 py-1 rounded bg-violet-100 text-violet-800">Edit</Link>
+                <Link href={route('admin.lensa.edit', card.id_lensa)} className="px-3 py-1 rounded bg-violet-100 text-violet-800">Edit</Link>
                 <button
                   className="px-3 py-1 rounded bg-red-100 text-red-700"
                   onClick={()=>{
-                    if(confirm('Hapus lensa ini?')) router.delete(route('lensa.destroy', card.id_lensa));
+                    if(confirm('Hapus lensa ini?')) router.delete(route('admin.lensa.destroy', card.id_lensa));
                   }}
                 >Hapus</button>
               </div>

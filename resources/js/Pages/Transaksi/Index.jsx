@@ -26,7 +26,7 @@ export default function Index() {
 
   function apply(e) {
     e?.preventDefault?.();
-    router.get(route("transaksi.index"), { search, date, range }, { preserveState: true, replace: true });
+    router.get(route("admin.transaksi.index"), { search, date, range }, { preserveState: true, replace: true });
   }
 
   const dateEnabled = ["day", "week", "month", "year", "custom"].includes(range);
@@ -76,7 +76,7 @@ export default function Index() {
               className="h-10 px-3 rounded-lg border min-w-[260px]"
             />
             <button className="h-10 px-4 rounded-lg bg-gray-900 text-white" type="submit">Terapkan</button>
-            <Link href={route("transaksi.create")} className="h-10 px-4 rounded-lg bg-orange-600 text-white flex items-center">
+            <Link href={route("admin.transaksi.create")} className="h-10 px-4 rounded-lg bg-orange-600 text-white flex items-center">
               + Tambah Transaksi
             </Link>
           </div>
@@ -105,10 +105,10 @@ export default function Index() {
                   <td className="px-4 py-3">{row.nama_pasien || "-"}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2 justify-end">
-                      <Link href={route("transaksi.edit", row.id)} className="p-2 rounded-lg bg-violet-100 text-violet-700" title="Edit">✏️</Link>
-                      <Link href={route("transaksi.show", row.id)} className="p-2 rounded-lg bg-gray-100" title="Detail">🔍</Link>
+                      <Link href={route("admin.transaksi.edit", row.id)} className="p-2 rounded-lg bg-violet-100 text-violet-700" title="Edit">✏️</Link>
+                      <Link href={route("admin.transaksi.show", row.id)} className="p-2 rounded-lg bg-gray-100" title="Detail">🔍</Link>
                       <button
-                        onClick={() => { if (confirm("Hapus transaksi ini secara permanen?")) router.delete(route("transaksi.destroy", row.id)); }}
+                        onClick={() => { if (confirm("Hapus transaksi ini secara permanen?")) router.delete(route("admin.transaksi.destroy", row.id)); }}
                         className="p-2 rounded-lg bg-rose-100 text-rose-700"
                         title="Hapus"
                       >🗑️</button>

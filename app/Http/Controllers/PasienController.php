@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Pasien;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -43,7 +44,8 @@ class PasienController extends Controller
             'tanggal_lahir' => 'nullable|date',
         ]);
 
-        Pasien::create($data);
+        $pasien = Pasien::create($data);
+        $this->log('create', $pasien);
 
         return redirect()->route('pasien.index')->with('success', 'Pasien berhasil ditambahkan.');
     }
@@ -119,13 +121,29 @@ class PasienController extends Controller
         ]);
 
         $pasien->update($data);
+        $this->log('update', $pasien);
 
         return redirect()->route('pasien.edit', $pasien)->with('success', 'Pasien berhasil diperbarui.');
     }
 
     public function destroy(Pasien $pasien)
     {
+        $this->log('delete', $pasien);
         $pasien->delete();
         return redirect()->route('pasien.index')->with('success', 'Pasien berhasil dihapus.');
+    }
+
+    private function log(string $action, Pasien $pasien): void
+    {
+        ActivityLog::create([
+            'user_id' => auth()->id(),
+            'action' => $action,
+            'model' => Pasien::class,
+            'model_id' => $pasien->id,
+            'details' => [
+                'kode_pasien' => $pasien->kode_pasien,
+                'nama_pasien' => $pasien->nama_pasien,
+            ],
+        ]);
     }
 }

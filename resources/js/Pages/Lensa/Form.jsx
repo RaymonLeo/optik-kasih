@@ -44,7 +44,7 @@ export default function Form({ mode = "create", prefill = null, onSubmit }) {
   return (
     <div className="p-6">
       <div className="flex items-center gap-4 mb-6">
-        <Link href={route("lensa.index")} className="text-orange-600 font-semibold">← Kembali</Link>
+        <Link href={route("admin.lensa.index")} className="text-orange-600 font-semibold">← Kembali</Link>
         <h1 className="text-4xl font-extrabold text-orange-500">
           {isEdit ? "Edit Lensa" : "Tambah Lensa"}
         </h1>
@@ -123,7 +123,7 @@ export default function Form({ mode = "create", prefill = null, onSubmit }) {
       </Section>
 
       <div className="flex items-center justify-end gap-3 mt-6">
-        <Link href={route("lensa.index")} className="h-10 px-4 rounded-lg border">Cancel</Link>
+        <Link href={route("admin.lensa.index")} className="h-10 px-4 rounded-lg border">Cancel</Link>
         <button onClick={() => onSubmit(data)} disabled={processing} className="h-10 px-4 rounded-lg bg-orange-600 text-white">
           {isEdit ? "Edit" : "Simpan"}
         </button>

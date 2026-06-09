@@ -1,24 +1,39 @@
 // resources/js/Components/SidebarLayout.jsx
 import React, { useMemo, useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
-import { Menu, X, Home, Users, Receipt, Package, Eye, Settings, LogOut } from "lucide-react";
+import { Menu, X, Home, Users, Receipt, Package, Eye, Settings, LogOut, History } from "lucide-react";
 
 export default function SidebarLayout({ children, title = "Dashboard" }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const { url } = usePage(); // path saat ini, misal: "/transaksi?date=...";
+  const { url, props } = usePage();
+  const user = props.auth?.user;
 
   const isActive = (href) => url.startsWith(href);
 
   const menuItems = useMemo(
-    () => [
-      { name: "Dashboard",     icon: <Home size={20} />,    href: "/dashboard",  active: isActive("/dashboard") },
-      { name: "Pasien",        icon: <Users size={20} />,   href: "/pasien",     active: isActive("/pasien") },
-      { name: "Bon Transaksi", icon: <Receipt size={20} />, href: "/transaksi",  active: isActive("/transaksi") }, // <= penting: /transaksi
-      { name: "Lensa",         icon: <Eye size={20} />,     href: "/lensa",      active: isActive("/lensa") },
-      { name: "Produk",        icon: <Package size={20} />, href: "/produk",     active: isActive("/produk") },
-    ],
-    [url]
+    () => {
+      if (user?.role === "super_admin") {
+        return [
+          { name: "Dashboard", icon: <Home size={20} />, href: "/super_admin/dashboard", active: isActive("/super_admin/dashboard") },
+          { name: "Cabang", icon: <Users size={20} />, href: "/super_admin/admins", active: isActive("/super_admin/admins") },
+          { name: "Pasien", icon: <Users size={20} />, href: "/pasien", active: isActive("/pasien") },
+          { name: "Produk Global", icon: <Package size={20} />, href: "/super_admin/produk", active: isActive("/super_admin/produk") },
+          { name: "Lensa Global", icon: <Eye size={20} />, href: "/super_admin/lensa", active: isActive("/super_admin/lensa") },
+          { name: "Transaksi Global", icon: <Receipt size={20} />, href: "/super_admin/transaksi", active: isActive("/super_admin/transaksi") },
+          { name: "History", icon: <History size={20} />, href: "/super_admin/history", active: isActive("/super_admin/history") },
+        ];
+      }
+
+      return [
+        { name: "Dashboard", icon: <Home size={20} />, href: "/admin/dashboard", active: isActive("/admin/dashboard") },
+        { name: "Pasien", icon: <Users size={20} />, href: "/pasien", active: isActive("/pasien") },
+        { name: "Bon Transaksi", icon: <Receipt size={20} />, href: "/admin/transaksi", active: isActive("/admin/transaksi") },
+        { name: "Lensa", icon: <Eye size={20} />, href: "/admin/lensa", active: isActive("/admin/lensa") },
+        { name: "Produk", icon: <Package size={20} />, href: "/admin/produk", active: isActive("/admin/produk") },
+      ];
+    },
+    [url, user?.role]
   );
 
   const handleLogout = () => {
@@ -105,15 +120,15 @@ export default function SidebarLayout({ children, title = "Dashboard" }) {
                 <span className="text-white text-sm font-medium">A</span>
               </div>
               <div className="hidden sm:block">
-                <p className="text-sm font-medium text-gray-700">Admin</p>
-                <p className="text-xs text-gray-500">Administrator</p>
+                <p className="text-sm font-medium text-gray-700">{user?.name || "Admin"}</p>
+                <p className="text-xs text-gray-500">{user?.role === "super_admin" ? "Super Admin" : "Admin Cabang"}</p>
               </div>
             </div>
           </div>
         </header>
 
         <main className="flex-1 overflow-auto p-6">
-          <div className="max-w-7xl mx-auto">{children}</div>
+          <div className="ok-page-transition max-w-7xl mx-auto">{children}</div>
         </main>
       </div>
 

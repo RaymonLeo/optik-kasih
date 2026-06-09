@@ -59,6 +59,8 @@ export default function Create({ mode = "create", prefill = null }) {
       harga: 0,
       panjar: 0,
       sisa: 0,
+      metode_pembayaran_1: 'Transfer',
+      metode_pembayaran_2: '',
       exam_date: "",
       items: [{ nama: "", qty: 1, harga: 0 }],
       tanpa_pasien: false,
@@ -187,9 +189,9 @@ export default function Create({ mode = "create", prefill = null }) {
   function doSubmit() {
     setOpenConfirm(false);
     if (isEdit) {
-      put(route("transaksi.update", data._id), { preserveScroll: true });
+      put(route("admin.transaksi.update", data._id), { preserveScroll: true });
     } else {
-      post(route("transaksi.store"), { onSuccess: () => reset(defaultForm) });
+      post(route("admin.transaksi.store"), { onSuccess: () => reset(defaultForm) });
     }
   }
 
@@ -235,7 +237,7 @@ export default function Create({ mode = "create", prefill = null }) {
     <div className="p-6">
       {/* Header ringkas (tanpa judul besar) */}
       <div className="flex items-center gap-4 mb-4">
-        <Link href={route("transaksi.index")} className="text-orange-700 hover:underline">
+        <Link href={route("admin.transaksi.index")} className="text-orange-700 hover:underline">
           ← Kembali
         </Link>
       </div>
@@ -411,6 +413,41 @@ export default function Create({ mode = "create", prefill = null }) {
               <Field label="Sisa">
                 <MoneyInput value={data.sisa} onChange={() => {}} readOnly />
               </Field>
+
+              <Field label={data.panjar > 0 ? "Metode Pembayaran 1 (Panjar)" : "Metode Pembayaran"}>
+                <select 
+                  value={data.metode_pembayaran_1} 
+                  onChange={e => setData("metode_pembayaran_1", e.target.value)}
+                  className="h-10 px-3 rounded border w-full"
+                >
+                  <option value="Transfer">Transfer</option>
+                  <option value="QRIS">QRIS</option>
+                  <option value="Cash">Cash</option>
+                  <option value="Kartu Debit/Kredit">Kartu Debit/Kredit</option>
+                </select>
+                {errors.metode_pembayaran_1 && (
+                  <div className="text-red-600 text-sm mt-1">{errors.metode_pembayaran_1}</div>
+                )}
+              </Field>
+
+              {data.panjar > 0 && data.sisa > 0 && (
+                <Field label="Metode Pembayaran 2 (Pelunasan)">
+                  <select 
+                    value={data.metode_pembayaran_2} 
+                    onChange={e => setData("metode_pembayaran_2", e.target.value)}
+                    className="h-10 px-3 rounded border w-full"
+                  >
+                    <option value="">-- Pilih Saat Pelunasan --</option>
+                    <option value="Transfer">Transfer</option>
+                    <option value="QRIS">QRIS</option>
+                    <option value="Cash">Cash</option>
+                    <option value="Kartu Debit/Kredit">Kartu Debit/Kredit</option>
+                  </select>
+                  {errors.metode_pembayaran_2 && (
+                    <div className="text-red-600 text-sm mt-1">{errors.metode_pembayaran_2}</div>
+                  )}
+                </Field>
+              )}
             </div>
           </Section>
         </>
@@ -554,13 +591,43 @@ export default function Create({ mode = "create", prefill = null }) {
             <Field label="Panjar">
               <MoneyInput value={data.panjar} onChange={(v) => setData("panjar", v)} />
             </Field>
+            <Field label="Sisa">
+              <MoneyInput value={data.sisa} onChange={() => {}} readOnly />
+            </Field>
+            <Field label={data.panjar > 0 ? "Metode Pembayaran 1 (Panjar)" : "Metode Pembayaran"}>
+              <select
+                value={data.metode_pembayaran_1}
+                onChange={(e) => setData("metode_pembayaran_1", e.target.value)}
+                className="h-10 px-3 rounded border w-full"
+              >
+                <option value="Transfer">Transfer</option>
+                <option value="QRIS">QRIS</option>
+                <option value="Cash">Cash</option>
+                <option value="Kartu Debit/Kredit">Kartu Debit/Kredit</option>
+              </select>
+            </Field>
+            {data.panjar > 0 && data.sisa > 0 && (
+              <Field label="Metode Pembayaran 2 (Pelunasan)">
+                <select
+                  value={data.metode_pembayaran_2}
+                  onChange={(e) => setData("metode_pembayaran_2", e.target.value)}
+                  className="h-10 px-3 rounded border w-full"
+                >
+                  <option value="">-- Pilih Saat Pelunasan --</option>
+                  <option value="Transfer">Transfer</option>
+                  <option value="QRIS">QRIS</option>
+                  <option value="Cash">Cash</option>
+                  <option value="Kartu Debit/Kredit">Kartu Debit/Kredit</option>
+                </select>
+              </Field>
+            )}
           </div>
         </Section>
       )}
 
       {/* Action bawah */}
       <div className="flex items-center justify-end gap-3 mt-6">
-        <Link href={route("transaksi.index")} className="h-10 px-4 rounded-lg border">
+        <Link href={route("admin.transaksi.index")} className="h-10 px-4 rounded-lg border">
           Cancel
         </Link>
         <button

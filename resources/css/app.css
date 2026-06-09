@@ -1,3 +1,180 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@keyframes ok-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ok-float {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate3d(0, -14px, 0) rotate(1deg);
+  }
+}
+
+@keyframes ok-sheen {
+  0% {
+    transform: translateX(-120%) skewX(-18deg);
+  }
+  100% {
+    transform: translateX(220%) skewX(-18deg);
+  }
+}
+
+@keyframes ok-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ok-soft-pop {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.ok-fade-up {
+  animation: ok-fade-up 0.72s ease both;
+}
+
+.ok-fade-up-delay-1 {
+  animation-delay: 0.12s;
+}
+
+.ok-fade-up-delay-2 {
+  animation-delay: 0.24s;
+}
+
+.ok-fade-up-delay-3 {
+  animation-delay: 0.36s;
+}
+
+.ok-float {
+  animation: ok-float 6s ease-in-out infinite;
+}
+
+.ok-sheen {
+  position: relative;
+  overflow: hidden;
+}
+
+.ok-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 34%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
+  animation: ok-sheen 4.8s ease-in-out infinite;
+}
+
+.ok-page-transition {
+  animation: ok-page-in 0.46s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.ok-soft-pop {
+  animation: ok-soft-pop 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.ok-interactive-root button,
+.ok-interactive-root a,
+.ok-interactive-root input,
+.ok-interactive-root select,
+.ok-interactive-root textarea {
+  transition-duration: 180ms;
+  transition-property: background-color, border-color, box-shadow, color, opacity, transform;
+  transition-timing-function: ease;
+}
+
+.ok-interactive-root button:not(:disabled):hover,
+.ok-interactive-root a[href]:hover {
+  transform: translateY(-1px);
+}
+
+.ok-interactive-root button:not(:disabled):active,
+.ok-interactive-root a[href]:active {
+  transform: translateY(0) scale(0.985);
+}
+
+.ok-interactive-root input:focus,
+.ok-interactive-root select:focus,
+.ok-interactive-root textarea:focus {
+  box-shadow: 0 0 0 4px rgba(229, 96, 32, 0.14);
+}
+
+.ok-interactive-root .bg-white.rounded-lg,
+.ok-interactive-root .bg-white.rounded-xl,
+.ok-interactive-root .bg-white.rounded-2xl,
+.ok-interactive-root .bg-white.shadow,
+.ok-interactive-root .bg-white.shadow-sm,
+.ok-interactive-root .bg-white.shadow-lg {
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.ok-interactive-root .bg-white.rounded-lg:hover,
+.ok-interactive-root .bg-white.rounded-xl:hover,
+.ok-interactive-root .bg-white.rounded-2xl:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
+}
+
+.ok-interactive-root tbody tr {
+  transition: background-color 160ms ease, transform 160ms ease;
+}
+
+.ok-interactive-root tbody tr:hover {
+  background-color: rgba(255, 247, 237, 0.72);
+}
+
+.ok-interactive-root [role="dialog"],
+.ok-interactive-root .fixed.inset-0 .bg-white.rounded-lg,
+.ok-interactive-root .fixed.inset-0 .bg-white.rounded-xl,
+.ok-interactive-root .fixed.inset-0 .bg-white.rounded-2xl {
+  animation: ok-soft-pop 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ok-interactive-root *,
+  .ok-interactive-root *::before,
+  .ok-interactive-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .ok-fade-up,
+  .ok-page-transition,
+  .ok-soft-pop,
+  .ok-float,
+  .ok-sheen::after {
+    animation: none;
+  }
+
+  .ok-interactive-root button:not(:disabled):hover,
+  .ok-interactive-root a[href]:hover,
+  .ok-interactive-root .bg-white.rounded-lg:hover,
+  .ok-interactive-root .bg-white.rounded-xl:hover,
+  .ok-interactive-root .bg-white.rounded-2xl:hover {
+    transform: none;
+  }
+}

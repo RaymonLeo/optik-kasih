@@ -170,7 +170,7 @@ export default function AuthenticatedLayout({ header, children }) {
                 </header>
             )}
 
-            <main>{children}</main>
+            <main className="ok-page-transition">{children}</main>
         </div>
     );
 }

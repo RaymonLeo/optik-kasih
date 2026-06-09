@@ -16,12 +16,20 @@ class Produk extends Model
         'jumlah_produk',
         'harga_produk',
         'gambar_produk',
+        'tanggal_masuk',
         'expired_produk',
+        'admin_id'
     ];
+
+    public function admin()
+    {
+        return $this->belongsTo(User::class, 'admin_id');
+    }
 
     protected $casts = [
         'jumlah_produk' => 'integer',
         'harga_produk'  => 'decimal:2',
+        'tanggal_masuk'=> 'date',
         'expired_produk'=> 'date',
     ];
 

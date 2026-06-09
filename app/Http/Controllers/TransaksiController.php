@@ -6,6 +6,9 @@ use App\Models\Transaksi;
 use App\Models\Pasien;
 use App\Models\Kesehatan;
 use App\Models\Lensa;
+use App\Models\User;
+use App\Models\Pengeluaran;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Carbon;
@@ -22,7 +25,8 @@ class TransaksiController extends Controller
         $search = $r->get('search');
 
         $q = Transaksi::query()
-            ->with(['pasien:id,nama_pasien,kode_pasien', 'lensa:id_lensa,nama_lensa']);
+            ->with(['pasien:id,nama_pasien,kode_pasien', 'lensa:id_lensa,nama_lensa'])
+            ->where('admin_id', auth()->id());
 
         // Anchor tanggal untuk semua mode yang butuh tanggal
         $anchor = $date ? Carbon::parse($date) : now();
@@ -100,6 +104,81 @@ class TransaksiController extends Controller
         ]);
     }
 
+    public function indexGlobal(Request $r)
+    {
+        $search = $r->get('search');
+        $range = $r->get('range', 'all');
+        $date = $r->get('date');
+        $to = $r->get('to');
+        $sortHarga = $r->get('sort_harga', 'desc');
+        $q = Transaksi::with(['pasien', 'admin', 'produk', 'lensa']);
+
+        if ($search) {
+            $q->where(function ($query) use ($search) {
+                $query->where('id', 'like', "%$search%")
+                    ->orWhereHas('pasien', fn($p) => $p->where('nama_pasien', 'like', "%$search%"))
+                    ->orWhereHas('admin', fn($a) => $a->where('name', 'like', "%$search%"));
+            });
+        }
+
+        if ($r->filled('admin_id')) {
+            $q->where('admin_id', $r->admin_id);
+        }
+
+        $anchor = $date ? Carbon::parse($date) : now();
+        if ($range === 'day') {
+            $q->whereDate('tanggal_pesan', $anchor->toDateString());
+        } elseif ($range === 'week') {
+            $q->whereBetween('tanggal_pesan', [$anchor->copy()->startOfWeek(), $anchor->copy()->endOfWeek()]);
+        } elseif ($range === 'month') {
+            $q->whereYear('tanggal_pesan', $anchor->year)->whereMonth('tanggal_pesan', $anchor->month);
+        } elseif ($range === 'year') {
+            $q->whereYear('tanggal_pesan', $anchor->year);
+        } elseif ($range === 'custom' && $date) {
+            $q->whereBetween('tanggal_pesan', [$anchor->toDateString(), Carbon::parse($to ?: $date)->toDateString()]);
+        }
+
+        $pendapatan = (clone $q)->sum('harga');
+        $pengeluaranQuery = Pengeluaran::query();
+        if ($r->filled('admin_id')) {
+            $pengeluaranQuery->where('admin_id', $r->admin_id);
+        }
+        if ($range === 'day') {
+            $pengeluaranQuery->whereDate('tanggal', $anchor->toDateString());
+        } elseif ($range === 'week') {
+            $pengeluaranQuery->whereBetween('tanggal', [$anchor->copy()->startOfWeek(), $anchor->copy()->endOfWeek()]);
+        } elseif ($range === 'month') {
+            $pengeluaranQuery->whereYear('tanggal', $anchor->year)->whereMonth('tanggal', $anchor->month);
+        } elseif ($range === 'year') {
+            $pengeluaranQuery->whereYear('tanggal', $anchor->year);
+        } elseif ($range === 'custom' && $date) {
+            $pengeluaranQuery->whereBetween('tanggal', [$anchor->toDateString(), Carbon::parse($to ?: $date)->toDateString()]);
+        }
+
+        $transactions = $q->orderBy('harga', $sortHarga === 'asc' ? 'asc' : 'desc')
+            ->orderByDesc('id')
+            ->paginate(15)
+            ->withQueryString();
+
+        return Inertia::render('SuperAdmin/TransaksiGlobal', [
+            'transactions' => $transactions,
+            'admins' => User::where('role', 'admin')->orderBy('name')->get(['id', 'name']),
+            'summary' => [
+                'pendapatan' => $pendapatan,
+                'pengeluaran' => $pengeluaranQuery->sum('jumlah'),
+                'laba' => $pendapatan - $pengeluaranQuery->sum('jumlah'),
+            ],
+            'filters' => [
+                'search' => $search,
+                'admin_id' => $r->get('admin_id', ''),
+                'range' => $range,
+                'date' => $anchor->toDateString(),
+                'to' => $to,
+                'sort_harga' => $sortHarga,
+            ],
+        ]);
+    }
+
     // ----------------- PAGE: CREATE -----------------
     public function create()
     {
@@ -123,6 +202,8 @@ class TransaksiController extends Controller
                 'panjar'           => ['required', 'numeric', 'min:0'],
                 'sisa'             => ['required', 'numeric', 'min:0'],
                 'lensa_id'         => ['nullable', Rule::exists('lensa', 'id_lensa')],
+                'metode_pembayaran_1' => ['required', 'string'],
+                'metode_pembayaran_2' => ['nullable', 'string'],
             ]);
 
             $pasien = Pasien::where('kode_pasien', $data['kode_pasien'])->firstOrFail();
@@ -145,9 +226,13 @@ class TransaksiController extends Controller
                 'harga'             => $data['harga'],
                 'panjar'            => $data['panjar'],
                 'sisa'              => $data['sisa'],
+                'admin_id'          => auth()->id(),
+                'metode_pembayaran_1' => $data['metode_pembayaran_1'],
+                'metode_pembayaran_2' => $data['metode_pembayaran_2'] ?? null,
             ]);
 
-            return redirect()->route('transaksi.show', $trx->id)->with('success', 'Transaksi tersimpan');
+            $this->log('create', $trx);
+            return redirect()->route('admin.transaksi.show', $trx->id)->with('success', 'Transaksi tersimpan');
         }
 
         // produk lain
@@ -155,8 +240,13 @@ class TransaksiController extends Controller
             'tanpa_pasien'     => ['boolean'],
             'kode_pasien'      => ['nullable', 'string'],
             'tanggal_pesanan'  => ['required', 'date'],
-            'produk_id'        => ['required', 'exists:produk,id'],
+            'produk_id'        => ['nullable', 'exists:produk,id'],
+            'items'            => ['nullable', 'array'],
             'harga'            => ['required', 'numeric', 'min:0'],
+            'panjar'           => ['nullable', 'numeric', 'min:0'],
+            'sisa'             => ['nullable', 'numeric', 'min:0'],
+            'metode_pembayaran_1' => ['required', 'string'],
+            'metode_pembayaran_2' => ['nullable', 'string'],
         ]);
 
         $patientId = null;
@@ -170,19 +260,28 @@ class TransaksiController extends Controller
 
         $trx = Transaksi::create([
             'pasien_id'        => $patientId,
-            'produk_id'        => $data['produk_id'],
+            'produk_id'        => $data['produk_id'] ?? null,
             'tanggal_pesan'    => $data['tanggal_pesanan'],
+            'gagang_pelanggan' => collect($data['items'] ?? [])->pluck('nama')->filter()->implode(', ') ?: null,
             'harga'            => $data['harga'],
-            'panjar'           => 0,
-            'sisa'             => 0,
+            'panjar'           => $data['panjar'] ?? 0,
+            'sisa'             => $data['sisa'] ?? max(0, (float) $data['harga'] - (float) ($data['panjar'] ?? 0)),
+            'admin_id'         => auth()->id(),
+            'metode_pembayaran_1' => $data['metode_pembayaran_1'],
+            'metode_pembayaran_2' => $data['metode_pembayaran_2'] ?? null,
         ]);
 
-        return redirect()->route('transaksi.show', $trx->id)->with('success', 'Transaksi produk tersimpan');
+        $this->log('create', $trx);
+        return redirect()->route('admin.transaksi.show', $trx->id)->with('success', 'Transaksi produk tersimpan');
     }
 
     // ----------------- SHOW -----------------
     public function show(Transaksi $transaksi)
     {
+        if (auth()->user()->role !== 'super_admin' && $transaksi->admin_id !== auth()->id()) {
+            abort(403);
+        }
+
         $transaksi->load(['pasien', 'kesehatan', 'lensa', 'produk']);
 
         $rx = [];
@@ -237,6 +336,10 @@ class TransaksiController extends Controller
     // ----------------- EDIT -----------------
     public function edit(Transaksi $transaksi)
     {
+        if (auth()->user()->role !== 'super_admin' && $transaksi->admin_id !== auth()->id()) {
+            abort(403);
+        }
+
         $transaksi->load(['pasien', 'kesehatan', 'lensa', 'produk']);
 
         $prefill = [
@@ -251,6 +354,8 @@ class TransaksiController extends Controller
             'harga'            => $transaksi->harga,
             'panjar'           => $transaksi->panjar,
             'sisa'             => $transaksi->sisa,
+            'metode_pembayaran_1' => $transaksi->metode_pembayaran_1,
+            'metode_pembayaran_2' => $transaksi->metode_pembayaran_2,
             'exam_date'        => optional($transaksi->kesehatan?->tanggal_periksa)->format('Y-m-d'),
             'pasien' => $transaksi->pasien ? [
                 'id'          => $transaksi->pasien->id,
@@ -290,6 +395,10 @@ class TransaksiController extends Controller
     // ----------------- UPDATE -----------------
     public function update(Request $r, Transaksi $transaksi)
     {
+        if (auth()->user()->role !== 'super_admin' && $transaksi->admin_id !== auth()->id()) {
+            abort(403);
+        }
+
         $type = $r->input('type', $transaksi->produk_id ? 'produk' : 'resep');
 
         if ($type === 'resep') {
@@ -304,6 +413,8 @@ class TransaksiController extends Controller
                 'panjar'           => ['required', 'numeric', 'min:0'],
                 'sisa'             => ['required', 'numeric', 'min:0'],
                 'lensa_id'         => ['nullable', Rule::exists('lensa', 'id_lensa')],
+                'metode_pembayaran_1' => ['required', 'string'],
+                'metode_pembayaran_2' => ['nullable', 'string'],
             ]);
 
             $pasien = Pasien::where('kode_pasien', $data['kode_pasien'])->firstOrFail();
@@ -327,9 +438,12 @@ class TransaksiController extends Controller
                 'harga'            => $data['harga'],
                 'panjar'           => $data['panjar'],
                 'sisa'             => $data['sisa'],
+                'metode_pembayaran_1' => $data['metode_pembayaran_1'],
+                'metode_pembayaran_2' => $data['metode_pembayaran_2'] ?? null,
             ]);
 
-            return redirect()->route('transaksi.show', $transaksi->id)->with('success', 'Transaksi diperbarui');
+            $this->log('update', $transaksi);
+            return redirect()->route('admin.transaksi.show', $transaksi->id)->with('success', 'Transaksi diperbarui');
         }
 
         // produk lain
@@ -337,8 +451,13 @@ class TransaksiController extends Controller
             'tanpa_pasien'     => ['boolean'],
             'kode_pasien'      => ['nullable', 'string'],
             'tanggal_pesanan'  => ['required', 'date'],
-            'produk_id'        => ['required', 'exists:produk,id'],
+            'produk_id'        => ['nullable', 'exists:produk,id'],
+            'items'            => ['nullable', 'array'],
             'harga'            => ['required', 'numeric', 'min:0'],
+            'panjar'           => ['nullable', 'numeric', 'min:0'],
+            'sisa'             => ['nullable', 'numeric', 'min:0'],
+            'metode_pembayaran_1' => ['required', 'string'],
+            'metode_pembayaran_2' => ['nullable', 'string'],
         ]);
 
         $patientId = null;
@@ -352,23 +471,31 @@ class TransaksiController extends Controller
 
         $transaksi->update([
             'pasien_id'        => $patientId,
-            'produk_id'        => $data['produk_id'],
+            'produk_id'        => $data['produk_id'] ?? null,
             'kesehatan_id'     => null,
             'lensa_id'         => null,
             'lensa_pelanggan'  => null,
-            'gagang_pelanggan' => null,
+            'gagang_pelanggan' => collect($data['items'] ?? [])->pluck('nama')->filter()->implode(', ') ?: null,
             'tanggal_pesan'    => $data['tanggal_pesanan'],
             'harga'            => $data['harga'],
-            'panjar'           => 0,
-            'sisa'             => 0,
+            'panjar'           => $data['panjar'] ?? 0,
+            'sisa'             => $data['sisa'] ?? max(0, (float) $data['harga'] - (float) ($data['panjar'] ?? 0)),
+            'metode_pembayaran_1' => $data['metode_pembayaran_1'],
+            'metode_pembayaran_2' => $data['metode_pembayaran_2'] ?? null,
         ]);
 
-        return redirect()->route('transaksi.show', $transaksi->id)->with('success', 'Transaksi produk diperbarui');
+        $this->log('update', $transaksi);
+        return redirect()->route('admin.transaksi.show', $transaksi->id)->with('success', 'Transaksi produk diperbarui');
     }
 
     // ----------------- DESTROY -----------------
     public function destroy(Transaksi $transaksi)
     {
+        if (auth()->user()->role !== 'super_admin' && $transaksi->admin_id !== auth()->id()) {
+            abort(403);
+        }
+
+        $this->log('delete', $transaksi);
         $transaksi->delete();
         return back()->with('success', 'Transaksi terhapus');
     }
@@ -487,6 +614,23 @@ class TransaksiController extends Controller
                     'ADD'  => $exam->add_kiri,
                     'MPD'  => $exam->pd_kiri,  // konsisten PD
                 ],
+            ],
+        ]);
+    }
+
+    private function log(string $action, Transaksi $transaksi): void
+    {
+        ActivityLog::create([
+            'user_id' => auth()->id(),
+            'action' => $action,
+            'model' => Transaksi::class,
+            'model_id' => $transaksi->id,
+            'details' => [
+                'pasien_id' => $transaksi->pasien_id,
+                'admin_id' => $transaksi->admin_id,
+                'harga' => $transaksi->harga,
+                'panjar' => $transaksi->panjar,
+                'sisa' => $transaksi->sisa,
             ],
         ]);
     }

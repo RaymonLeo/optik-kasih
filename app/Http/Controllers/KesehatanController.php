@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Kesehatan;
 use App\Models\Pasien;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 
 class KesehatanController extends Controller
@@ -13,7 +14,8 @@ class KesehatanController extends Controller
         $this->validateReq($request, true);
 
         $payload = $this->mapToColumns($request, $pasien->id);
-        Kesehatan::create($payload);
+        $kesehatan = Kesehatan::create($payload);
+        $this->log('create', $kesehatan);
 
         return redirect()->route('pasien.show', $pasien)->with('success', 'Data mata berhasil ditambahkan.');
     }
@@ -24,6 +26,7 @@ class KesehatanController extends Controller
 
         $payload = $this->mapToColumns($request, $kesehatan->pasien_id);
         $kesehatan->update($payload);
+        $this->log('update', $kesehatan);
 
         return redirect()->route('pasien.show', $kesehatan->pasien_id)->with('success', 'Data mata berhasil diupdate.');
     }
@@ -31,6 +34,7 @@ class KesehatanController extends Controller
     public function destroy(Kesehatan $kesehatan)
     {
         $pasienId = $kesehatan->pasien_id;
+        $this->log('delete', $kesehatan);
         $kesehatan->delete();
 
         return redirect()->route('pasien.show', $pasienId)->with('success', 'Data mata telah dihapus.');
@@ -72,5 +76,19 @@ class KesehatanController extends Controller
             'add_kiri'  => $kiri['add'] ?? null,
             'pd_kiri'   => $kiri['mpd'] ?? ($kiri['pd'] ?? null),
         ];
+    }
+
+    private function log(string $action, Kesehatan $kesehatan): void
+    {
+        ActivityLog::create([
+            'user_id' => auth()->id(),
+            'action' => $action,
+            'model' => Kesehatan::class,
+            'model_id' => $kesehatan->id,
+            'details' => [
+                'pasien_id' => $kesehatan->pasien_id,
+                'tanggal_periksa' => optional($kesehatan->tanggal_periksa)->toDateString(),
+            ],
+        ]);
     }
 }

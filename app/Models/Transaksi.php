@@ -12,7 +12,8 @@ class Transaksi extends Model
         'pasien_id', 'produk_id', 'kesehatan_id', 'lensa_id',
         'tanggal_pesan', 'tanggal_masuk', 'tanggal_selesai',
         'lensa_pelanggan', 'gagang_pelanggan',
-        'harga', 'panjar', 'sisa'
+        'harga', 'panjar', 'sisa',
+        'admin_id', 'metode_pembayaran_1', 'metode_pembayaran_2'
     ];
 
     protected $casts = [
@@ -28,4 +29,5 @@ class Transaksi extends Model
     public function produk()    { return $this->belongsTo(Produk::class); }
     public function kesehatan() { return $this->belongsTo(Kesehatan::class); }
     public function lensa()     { return $this->belongsTo(Lensa::class, 'lensa_id', 'id_lensa'); }
+    public function admin()     { return $this->belongsTo(User::class, 'admin_id'); }
 }

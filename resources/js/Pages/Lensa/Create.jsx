@@ -24,6 +24,7 @@ export default function Create({ mode = "create", prefill = null }) {
   const isEdit = mode === "edit";
   const { data, setData, post, put, processing, errors } = useForm(prefill || {
     nama_lensa:"", jenis_lensa:"", coating_lensa:"", indeks_lensa:"", stok_lensa:0,
+    deskripsi:"", tanggal_masuk:"",
     gambar_lensa:null, gambar_url:null,
     sph_kanan:"", cyl_kanan:"", axis_kanan:"", prism_kanan:"", base_kanan:"", add_kanan:"",
     sph_kiri:"",  cyl_kiri:"",  axis_kiri:"",  prism_kiri:"",  base_kiri:"",  add_kiri:"",
@@ -39,16 +40,16 @@ export default function Create({ mode = "create", prefill = null }) {
 
   function submit(){
     if (isEdit) {
-      put(route('lensa.update', prefill.id_lensa), { forceFormData: true });
+      put(route('admin.lensa.update', prefill.id_lensa), { forceFormData: true });
     } else {
-      post(route('lensa.store'), { forceFormData: true });
+      post(route('admin.lensa.store'), { forceFormData: true });
     }
   }
 
   return (
     <SidebarLayout title={isEdit ? "Edit Lensa" : "Tambah Lensa"}>
       <div className="flex items-center gap-3 mb-4">
-        <Link href={route('lensa.index')} className="text-orange-600 font-semibold">← Kembali</Link>
+        <Link href={route('admin.lensa.index')} className="text-orange-600 font-semibold">← Kembali</Link>
       </div>
 
       <Section>
@@ -77,6 +78,16 @@ export default function Create({ mode = "create", prefill = null }) {
             <input type="number" className="h-10 px-3 rounded border w-full"
                    value={data.stok_lensa}
                    onChange={e=>setData('stok_lensa', e.target.value)} />
+          </Field>
+          <Field label="Tanggal Masuk">
+            <input type="date" className="h-10 px-3 rounded border w-full"
+                   value={data.tanggal_masuk || ""}
+                   onChange={e=>setData('tanggal_masuk', e.target.value)} />
+          </Field>
+          <Field label="Deskripsi">
+            <textarea className="min-h-10 px-3 py-2 rounded border w-full"
+                   value={data.deskripsi || ""}
+                   onChange={e=>setData('deskripsi', e.target.value)} />
           </Field>
 
           <Field label="Gambar Lensa (opsional)" error={errors.gambar_lensa}>
@@ -113,7 +124,7 @@ export default function Create({ mode = "create", prefill = null }) {
       </Section>
 
       <div className="flex items-center justify-end gap-3">
-        <Link href={route('lensa.index')} className="h-10 px-4 rounded-lg border">Cancel</Link>
+        <Link href={route('admin.lensa.index')} className="h-10 px-4 rounded-lg border">Cancel</Link>
         <button onClick={submit} disabled={processing} className="h-10 px-4 rounded-lg bg-orange-600 text-white">
           {isEdit ? "Simpan" : "Kirim"}
         </button>
