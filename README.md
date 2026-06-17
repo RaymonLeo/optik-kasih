@@ -1,3 +1,79 @@
+# appV1.0 Rev 1 - Setup Optik Kasih
+
+# Optik Kasih Management System
+
+Website ini digunakan untuk manajemen toko Optik Kasih, pengelolaan cabang/admin, produk, lensa, transaksi, pasien, dan katalog produk publik berdasarkan cabang.
+
+## Akun Superadmin
+
+Seeder proyek membuat akun superadmin utama berikut:
+
+- Nama: `Optik Kasih`
+- Email: `optikasih@gmail.com`
+- Password awal: `rahasia`
+- Role: `super_admin`
+- Status email: sudah terverifikasi
+
+Seeder tidak menimpa password jika akun `optikasih@gmail.com` sudah ada. Jadi setelah password diganti lewat profil atau reset password, menjalankan seeder ulang tidak akan mengembalikan password ke `rahasia`.
+
+## Langkah Setup Superadmin
+
+1. Pastikan `.env` sudah tersedia dari `.env.example`.
+2. Sesuaikan database di `.env`.
+3. Jalankan migration dan seeder:
+
+```bash
+php artisan migrate --seed
+```
+
+4. Login lewat `/superlogin` atau route login aplikasi dengan:
+
+```text
+Email: optikasih@gmail.com
+Password: rahasia
+```
+
+5. Setelah login pertama, ganti password dari menu profil agar password awal tidak dipakai terus.
+
+## Langkah Setup Email Reset Password Gmail
+
+1. Masuk ke akun Google `optikasih@gmail.com`.
+2. Aktifkan 2-Step Verification di Google Account.
+3. Buat App Password untuk aplikasi Laravel.
+4. Isi `.env` seperti contoh berikut:
+
+```env
+APP_NAME="Optik Kasih"
+APP_URL=http://localhost:8000
+
+MAIL_MAILER=smtp
+MAIL_SCHEME=null
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=optikasih@gmail.com
+MAIL_PASSWORD="isi_dengan_google_app_password"
+MAIL_FROM_ADDRESS="optikasih@gmail.com"
+MAIL_FROM_NAME="${APP_NAME}"
+
+SUPER_ADMIN_NAME="Optik Kasih"
+SUPER_ADMIN_EMAIL="optikasih@gmail.com"
+SUPER_ADMIN_INITIAL_PASSWORD="rahasia"
+```
+
+5. Bersihkan cache konfigurasi:
+
+```bash
+php artisan config:clear
+```
+
+6. Uji dari halaman `Lupa Password` memakai email `optikasih@gmail.com`.
+
+## Splash Screen
+
+Splash screen global berada di `resources/js/Components/AppSplashScreen.jsx` dan dipasang di `resources/js/app.jsx`. Splash screen muncul saat initial load singkat dan saat navigasi Inertia sedang mengambil data, lalu hilang otomatis setelah proses selesai.
+
+---
+
 <p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
 <p align="center">

@@ -1,3 +1,5 @@
+/* appV1.0 Rev 1 - Animasi global untuk splash screen Optik Kasih. */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -53,6 +55,27 @@
   }
 }
 
+@keyframes ok-splash-orbit {
+  from {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.05);
+  }
+  to {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+@keyframes ok-splash-bar {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(260%);
+  }
+}
+
 .ok-fade-up {
   animation: ok-fade-up 0.72s ease both;
 }
@@ -93,6 +116,15 @@
 
 .ok-soft-pop {
   animation: ok-soft-pop 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.ok-splash-orbit {
+  animation: ok-splash-orbit 1.6s linear infinite;
+  border-top-color: rgba(229, 96, 32, 0.95);
+}
+
+.ok-splash-bar {
+  animation: ok-splash-bar 1.1s ease-in-out infinite;
 }
 
 .ok-interactive-root button,
@@ -165,6 +197,8 @@
   .ok-fade-up,
   .ok-page-transition,
   .ok-soft-pop,
+  .ok-splash-orbit,
+  .ok-splash-bar,
   .ok-float,
   .ok-sheen::after {
     animation: none;
