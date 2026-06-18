@@ -1,6 +1,10 @@
 <?php
 
+// appV1.0 Rev 2 - Test profil termasuk penguncian dan notifikasi akun superadmin.
+
 use App\Models\User;
+use App\Notifications\AccountSecurityNotification;
+use Illuminate\Support\Facades\Notification;
 
 test('profile page is displayed', function () {
     $user = User::factory()->create();
@@ -48,6 +52,51 @@ test('email verification status is unchanged when the email address is unchanged
         ->assertRedirect('/profile');
 
     $this->assertNotNull($user->refresh()->email_verified_at);
+});
+
+test('superadmin email cannot be changed from profile', function () {
+    $user = User::factory()->create([
+        'email' => config('optik.super_admin.email'),
+        'role' => 'super_admin',
+        'email_verified_at' => now(),
+    ]);
+
+    $response = $this
+        ->actingAs($user)
+        ->from('/profile')
+        ->patch('/profile', [
+            'name' => 'Optik Kasih',
+            'email' => 'owner@example.com',
+        ]);
+
+    $response
+        ->assertSessionHasErrors('email')
+        ->assertRedirect('/profile');
+
+    $this->assertSame(config('optik.super_admin.email'), $user->refresh()->email);
+});
+
+test('superadmin profile update sends security notification', function () {
+    Notification::fake();
+
+    $user = User::factory()->create([
+        'email' => config('optik.super_admin.email'),
+        'role' => 'super_admin',
+        'email_verified_at' => now(),
+    ]);
+
+    $response = $this
+        ->actingAs($user)
+        ->patch('/profile', [
+            'name' => 'Optik Kasih Pusat',
+            'email' => config('optik.super_admin.email'),
+        ]);
+
+    $response
+        ->assertSessionHasNoErrors()
+        ->assertRedirect('/profile');
+
+    Notification::assertSentTo($user, AccountSecurityNotification::class);
 });
 
 test('user can delete their account', function () {

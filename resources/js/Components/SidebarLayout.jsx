@@ -1,151 +1,234 @@
-// resources/js/Components/SidebarLayout.jsx
+// appV1.0 Rev 3 - Sidebar operasional untuk manajemen toko Optik Kasih.
+
 import React, { useMemo, useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
-import { Menu, X, Home, Users, Receipt, Package, Eye, Settings, LogOut, History } from "lucide-react";
+import {
+  Activity,
+  BarChart3,
+  Building2,
+  ChevronRight,
+  Glasses,
+  History,
+  LogOut,
+  Menu,
+  Package,
+  ReceiptText,
+  Search,
+  Settings,
+  ShieldCheck,
+  UserRound,
+  Users,
+  X,
+} from "lucide-react";
 
-export default function SidebarLayout({ children, title = "Dashboard" }) {
+const primary = "#E56020";
+
+export default function SidebarLayout({ children, title = "Dashboard", subtitle = "" }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const { url, props } = usePage();
   const user = props.auth?.user;
+  const isSuperAdmin = user?.role === "super_admin";
 
-  const isActive = (href) => url.startsWith(href);
+  const isActive = (href) => url === href || url.startsWith(`${href}/`);
 
-  const menuItems = useMemo(
-    () => {
-      if (user?.role === "super_admin") {
-        return [
-          { name: "Dashboard", icon: <Home size={20} />, href: "/super_admin/dashboard", active: isActive("/super_admin/dashboard") },
-          { name: "Cabang", icon: <Users size={20} />, href: "/super_admin/admins", active: isActive("/super_admin/admins") },
-          { name: "Pasien", icon: <Users size={20} />, href: "/pasien", active: isActive("/pasien") },
-          { name: "Produk Global", icon: <Package size={20} />, href: "/super_admin/produk", active: isActive("/super_admin/produk") },
-          { name: "Lensa Global", icon: <Eye size={20} />, href: "/super_admin/lensa", active: isActive("/super_admin/lensa") },
-          { name: "Transaksi Global", icon: <Receipt size={20} />, href: "/super_admin/transaksi", active: isActive("/super_admin/transaksi") },
-          { name: "History", icon: <History size={20} />, href: "/super_admin/history", active: isActive("/super_admin/history") },
-        ];
-      }
-
+  const menuGroups = useMemo(() => {
+    if (isSuperAdmin) {
       return [
-        { name: "Dashboard", icon: <Home size={20} />, href: "/admin/dashboard", active: isActive("/admin/dashboard") },
-        { name: "Pasien", icon: <Users size={20} />, href: "/pasien", active: isActive("/pasien") },
-        { name: "Bon Transaksi", icon: <Receipt size={20} />, href: "/admin/transaksi", active: isActive("/admin/transaksi") },
-        { name: "Lensa", icon: <Eye size={20} />, href: "/admin/lensa", active: isActive("/admin/lensa") },
-        { name: "Produk", icon: <Package size={20} />, href: "/admin/produk", active: isActive("/admin/produk") },
+        {
+          label: "Pusat Kontrol",
+          items: [
+            { name: "Dashboard", icon: BarChart3, href: "/super_admin/dashboard", active: isActive("/super_admin/dashboard") },
+            { name: "Cabang Toko", icon: Building2, href: "/super_admin/admins", active: isActive("/super_admin/admins") },
+            { name: "Data Pasien", icon: Users, href: "/pasien", active: isActive("/pasien") },
+          ],
+        },
+        {
+          label: "Inventori & Penjualan",
+          items: [
+            { name: "Produk Global", icon: Package, href: "/super_admin/produk", active: isActive("/super_admin/produk") },
+            { name: "Lensa Global", icon: Glasses, href: "/super_admin/lensa", active: isActive("/super_admin/lensa") },
+            { name: "Transaksi Global", icon: ReceiptText, href: "/super_admin/transaksi", active: isActive("/super_admin/transaksi") },
+          ],
+        },
+        {
+          label: "Audit",
+          items: [
+            { name: "History Perubahan", icon: History, href: "/super_admin/history", active: isActive("/super_admin/history") },
+          ],
+        },
       ];
-    },
-    [url, user?.role]
-  );
+    }
+
+    return [
+      {
+        label: "Operasional Cabang",
+        items: [
+          { name: "Dashboard", icon: BarChart3, href: "/admin/dashboard", active: isActive("/admin/dashboard") },
+          { name: "Pasien", icon: Users, href: "/pasien", active: isActive("/pasien") },
+          { name: "Transaksi", icon: ReceiptText, href: "/admin/transaksi", active: isActive("/admin/transaksi") },
+          { name: "Lensa", icon: Glasses, href: "/admin/lensa", active: isActive("/admin/lensa") },
+          { name: "Produk", icon: Package, href: "/admin/produk", active: isActive("/admin/produk") },
+        ],
+      },
+    ];
+  }, [url, isSuperAdmin]);
 
   const handleLogout = () => {
     setShowLogoutModal(false);
     router.post("/logout");
   };
 
+  const initials = (user?.name || "OK")
+    .split(" ")
+    .map((item) => item[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
-    <div className="flex h-screen bg-gray-50 relative">
-      {/* overlay mobile */}
+    <div className="flex h-screen overflow-hidden bg-[#F5F6F8] text-slate-900">
       {isSidebarOpen && (
-        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)} />
+        <button
+          type="button"
+          aria-label="Tutup sidebar"
+          className="fixed inset-0 z-40 bg-slate-950/55 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
       )}
 
-      {/* SIDEBAR */}
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white shadow-xl transform transition-transform duration-300 ease-in-out
-        ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
+        className={`fixed inset-y-0 left-0 z-50 w-[280px] border-r border-slate-800 bg-[#111318] text-white shadow-2xl transition-transform duration-300 lg:static lg:translate-x-0 ${
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
       >
-        <div className="flex flex-col h-full">
-          {/* LOGO */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200">
-            <div className="flex items-center space-x-3">
-              <img src="/images/logo-optik.png" alt="Optik Kasih Logo" className="h-10 w-10 object-contain" />
-              <div className="text-xl font-bold">
-                <span className="text-yellow-500">OPTIK</span>
-                <span className="text-orange-500 ml-1">KASIH</span>
+        <div className="flex h-full flex-col">
+          <div className="border-b border-white/10 px-5 py-5">
+            <div className="flex items-center justify-between gap-3">
+              <Link href={isSuperAdmin ? "/super_admin/dashboard" : "/admin/dashboard"} className="flex min-w-0 items-center gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white">
+                  <img src="/images/logo-optik.png" alt="Optik Kasih" className="h-9 w-9 object-contain" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-base font-extrabold leading-tight">Optik Kasih</span>
+                  <span className="block truncate text-xs font-medium text-slate-400">
+                    {isSuperAdmin ? "Super Admin Center" : "Cabang Store Panel"}
+                  </span>
+                </span>
+              </Link>
+              <button onClick={() => setIsSidebarOpen(false)} className="rounded-lg p-2 text-slate-400 hover:bg-white/10 lg:hidden">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-lg border border-white/10 bg-white/[0.04] p-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg text-sm font-bold text-white" style={{ backgroundColor: primary }}>
+                  {initials}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{user?.name || "Admin"}</p>
+                  <p className="truncate text-xs text-slate-400">{isSuperAdmin ? "Akses penuh toko" : "Admin cabang"}</p>
+                </div>
               </div>
             </div>
-            <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-1 rounded-md hover:bg-gray-100">
-              <X size={20} />
-            </button>
           </div>
 
-          {/* MENU */}
-          <nav className="flex-1 px-4 py-6 space-y-1">
-            {menuItems.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`w-full flex items-center px-4 py-3 rounded-lg transition-all
-                  ${
-                    item.active
-                      ? "bg-orange-100 text-orange-700 border-r-4 border-orange-500"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-800"
-                  }`}
-                onClick={() => window.innerWidth < 1024 && setIsSidebarOpen(false)}
-              >
-                <span className={`mr-3 ${item.active ? "text-orange-600" : "text-gray-500"}`}>{item.icon}</span>
-                <span className="font-medium">{item.name}</span>
-              </Link>
+          <nav className="flex-1 overflow-y-auto px-3 py-4">
+            {menuGroups.map((group) => (
+              <div key={group.label} className="mb-5">
+                <p className="mb-2 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">{group.label}</p>
+                <div className="space-y-1">
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        className={`group flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold transition ${
+                          item.active
+                            ? "bg-[#E56020] text-white shadow-lg shadow-orange-950/25"
+                            : "text-slate-300 hover:bg-white/10 hover:text-white"
+                        }`}
+                        onClick={() => window.innerWidth < 1024 && setIsSidebarOpen(false)}
+                      >
+                        <Icon className="h-5 w-5 shrink-0" />
+                        <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                        {item.active && <ChevronRight className="h-4 w-4 shrink-0" />}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
             ))}
           </nav>
 
-          {/* FOOTER */}
-          <div className="p-4 border-t border-gray-200 space-y-1">
-            <button className="w-full flex items-center px-4 py-3 text-gray-600 hover:bg-gray-100 rounded-lg">
-              <Settings size={20} className="mr-3" />
-              <span className="font-medium">Pengaturan</span>
-            </button>
+          <div className="border-t border-white/10 p-3">
+            <Link href="/profile" className="flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold text-slate-300 hover:bg-white/10 hover:text-white">
+              <Settings className="h-5 w-5" />
+              Pengaturan Akun
+            </Link>
             <button
               onClick={() => setShowLogoutModal(true)}
-              className="w-full flex items-center px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg"
+              className="mt-1 flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold text-red-300 hover:bg-red-500/10 hover:text-red-200"
             >
-              <LogOut size={20} className="mr-3" />
-              <span className="font-medium">Keluar</span>
+              <LogOut className="h-5 w-5" />
+              Keluar
             </button>
           </div>
         </div>
       </aside>
 
-      {/* MAIN */}
-      <div className="flex-1 flex flex-col min-h-0">
-        <header className="bg-white shadow-sm border-b px-4 py-4 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100">
-                <Menu size={24} className="text-gray-700" />
-              </button>
-              <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">{title}</h1>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 lg:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <button onClick={() => setIsSidebarOpen(true)} className="rounded-lg border border-slate-200 p-2 text-slate-700 hover:bg-slate-50 lg:hidden">
+              <Menu size={22} />
+            </button>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h1 className="truncate text-lg font-extrabold text-slate-950 sm:text-xl">{title}</h1>
+                {isSuperAdmin && (
+                  <span className="hidden rounded-full bg-orange-50 px-2.5 py-1 text-xs font-bold text-[#E56020] sm:inline-flex">
+                    Super Admin
+                  </span>
+                )}
+              </div>
+              {subtitle && <p className="truncate text-xs font-medium text-slate-500">{subtitle}</p>}
             </div>
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-medium">A</span>
-              </div>
-              <div className="hidden sm:block">
-                <p className="text-sm font-medium text-gray-700">{user?.name || "Admin"}</p>
-                <p className="text-xs text-gray-500">{user?.role === "super_admin" ? "Super Admin" : "Admin Cabang"}</p>
-              </div>
+          </div>
+
+          <div className="hidden min-w-[260px] items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 md:flex">
+            <Search className="h-4 w-4 text-slate-400" />
+            <span className="text-sm text-slate-500">Pantau cabang, stok, pasien, dan transaksi</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="hidden items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 sm:flex">
+              <Activity className="h-4 w-4" />
+              Online
+            </div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-950 text-sm font-bold text-white">
+              {isSuperAdmin ? <ShieldCheck className="h-5 w-5" /> : <UserRound className="h-5 w-5" />}
             </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-6">
-          <div className="ok-page-transition max-w-7xl mx-auto">{children}</div>
+        <main className="min-h-0 flex-1 overflow-auto">
+          <div className="ok-page-transition mx-auto w-full max-w-[1480px] px-4 py-5 sm:px-6 lg:px-8">{children}</div>
         </main>
       </div>
 
-      {/* LOGOUT MODAL */}
       {showLogoutModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">Konfirmasi Logout</h2>
-            <p className="text-sm text-gray-600 mb-6">Apakah Anda yakin ingin keluar?</p>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => setShowLogoutModal(false)}
-                className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800"
-              >
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/50 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-bold text-slate-950">Keluar dari sistem?</h2>
+            <p className="mt-2 text-sm text-slate-600">Sesi kerja Anda akan ditutup dan kembali ke halaman login.</p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={() => setShowLogoutModal(false)} className="h-10 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">
                 Batal
               </button>
-              <button onClick={handleLogout} className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">
+              <button onClick={handleLogout} className="h-10 rounded-lg bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700">
                 Ya, Logout
               </button>
             </div>

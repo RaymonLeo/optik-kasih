@@ -1,4 +1,4 @@
-# appV1.0 Rev 1 - Setup Optik Kasih
+# appV1.0 Rev 2 - Setup Optik Kasih
 
 # Optik Kasih Management System
 
@@ -15,6 +15,8 @@ Seeder proyek membuat akun superadmin utama berikut:
 - Status email: sudah terverifikasi
 
 Seeder tidak menimpa password jika akun `optikasih@gmail.com` sudah ada. Jadi setelah password diganti lewat profil atau reset password, menjalankan seeder ulang tidak akan mengembalikan password ke `rahasia`.
+
+Email superadmin dikunci ke `optikasih@gmail.com`. Jangan mengganti email ini dari database kecuali memang ingin memindahkan kepemilikan superadmin dan sudah menyiapkan email pengganti di `.env`.
 
 ## Langkah Setup Superadmin
 
@@ -67,6 +69,25 @@ php artisan config:clear
 ```
 
 6. Uji dari halaman `Lupa Password` memakai email `optikasih@gmail.com`.
+
+## Koneksi Total Superadmin ke Email
+
+Setelah konfigurasi Gmail aktif, sistem melakukan hal berikut:
+
+- Reset password superadmin mengirim link ke `optikasih@gmail.com`.
+- Setelah password berhasil diubah dari profil, sistem mengirim notifikasi keamanan ke email akun tersebut.
+- Setelah password berhasil direset dari link email, sistem mengirim notifikasi keamanan ke email akun tersebut.
+- Perubahan profil superadmin mengirim notifikasi keamanan ke `optikasih@gmail.com`.
+- Email superadmin tidak bisa diganti dari halaman profil agar reset password dan pemulihan akses tetap melekat ke akun toko.
+
+Jika email tidak masuk, cek urutan berikut:
+
+1. Pastikan `MAIL_MAILER=smtp`.
+2. Pastikan `MAIL_HOST=smtp.gmail.com` dan `MAIL_PORT=587`.
+3. Pastikan `MAIL_USERNAME=optikasih@gmail.com`.
+4. Pastikan `MAIL_PASSWORD` berisi Google App Password, bukan password login Gmail biasa.
+5. Jalankan `php artisan config:clear`.
+6. Cek `storage/logs/laravel.log` jika masih gagal.
 
 ## Splash Screen
 

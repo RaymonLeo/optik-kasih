@@ -1,6 +1,9 @@
 <?php
 
+// appV1.0 Rev 2 - Test reset password via email termasuk notifikasi keamanan setelah berhasil.
+
 use App\Models\User;
+use App\Notifications\AccountSecurityNotification;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Notification;
 
@@ -57,4 +60,6 @@ test('password can be reset with valid token', function () {
 
         return true;
     });
+
+    Notification::assertSentTo($user, AccountSecurityNotification::class);
 });

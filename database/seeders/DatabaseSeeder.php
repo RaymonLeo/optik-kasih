@@ -1,6 +1,6 @@
 <?php
 
-// appV1.0 Rev 1 - Seed akun superadmin Optik Kasih tanpa menimpa password yang sudah diubah.
+// appV1.0 Rev 2 - Seed akun superadmin Optik Kasih dari konfigurasi pusat tanpa menimpa password yang sudah diubah.
 
 namespace Database\Seeders;
 
@@ -17,14 +17,14 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $superAdmin = User::firstOrNew([
-            'email' => env('SUPER_ADMIN_EMAIL', 'optikasih@gmail.com'),
+            'email' => config('optik.super_admin.email'),
         ]);
 
         if (! $superAdmin->exists) {
-            $superAdmin->password = Hash::make(env('SUPER_ADMIN_INITIAL_PASSWORD', 'rahasia'));
+            $superAdmin->password = Hash::make(config('optik.super_admin.initial_password'));
         }
 
-        $superAdmin->name = env('SUPER_ADMIN_NAME', 'Optik Kasih');
+        $superAdmin->name = config('optik.super_admin.name');
         $superAdmin->role = 'super_admin';
         $superAdmin->email_verified_at ??= now();
         $superAdmin->save();

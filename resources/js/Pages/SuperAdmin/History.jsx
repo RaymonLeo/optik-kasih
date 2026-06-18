@@ -1,6 +1,8 @@
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+// appV1.0 Rev 3 - History perubahan data dengan tampilan audit superadmin.
+
+import SidebarLayout from '@/Components/SidebarLayout';
 import { Head, Link, router } from '@inertiajs/react';
-import { Filter } from 'lucide-react';
+import { Filter, History as HistoryIcon, PlusCircle, PencilLine, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
 const labels = {
@@ -8,6 +10,33 @@ const labels = {
     update: 'Edit Data',
     delete: 'Hapus Data',
 };
+
+const icons = {
+    create: PlusCircle,
+    update: PencilLine,
+    delete: Trash2,
+};
+
+const tones = {
+    create: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+    update: 'bg-orange-50 text-[#E56020] border-orange-100',
+    delete: 'bg-red-50 text-red-700 border-red-100',
+};
+
+function formatDetails(details) {
+    if (!details) {
+        return '-';
+    }
+
+    try {
+        const parsed = typeof details === 'string' ? JSON.parse(details) : details;
+        return Object.entries(parsed)
+            .map(([key, value]) => `${key}: ${value ?? '-'}`)
+            .join(' | ');
+    } catch {
+        return String(details);
+    }
+}
 
 export default function History({ logs, admins = [], filters = {} }) {
     const [adminId, setAdminId] = useState(filters.admin_id || '');
@@ -22,72 +51,99 @@ export default function History({ logs, admins = [], filters = {} }) {
     };
 
     return (
-        <AuthenticatedLayout header={<h2 className="text-xl font-semibold text-gray-800">History Perubahan Data</h2>}>
+        <SidebarLayout
+            title="History Perubahan Data"
+            subtitle="Audit setiap penambahan, pengeditan, dan penghapusan data oleh admin cabang."
+        >
             <Head title="History Perubahan Data" />
-            <div className="py-8">
-                <div className="mx-auto max-w-7xl space-y-5 px-4 sm:px-6 lg:px-8">
-                    <form onSubmit={apply} className="flex flex-col gap-3 rounded-2xl border bg-white p-4 shadow-sm sm:flex-row">
-                        <select value={adminId} onChange={(event) => setAdminId(event.target.value)} className="h-11 rounded-lg border-gray-300">
-                            <option value="">Semua admin/cabang</option>
-                            {admins.map((admin) => (
-                                <option key={admin.id} value={admin.id}>{admin.name}</option>
-                            ))}
-                        </select>
-                        <select value={action} onChange={(event) => setAction(event.target.value)} className="h-11 rounded-lg border-gray-300">
-                            <option value="">Semua aksi</option>
-                            <option value="create">Penambahan</option>
-                            <option value="update">Pengeditan</option>
-                            <option value="delete">Penghapusan</option>
-                        </select>
-                        <button className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 font-semibold text-white">
-                            <Filter className="h-4 w-4" /> Terapkan
-                        </button>
-                    </form>
 
-                    <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
-                        <table className="w-full text-sm">
-                            <thead className="bg-gray-50 text-left">
-                                <tr>
-                                    <th className="px-4 py-3">Waktu</th>
-                                    <th className="px-4 py-3">Admin</th>
-                                    <th className="px-4 py-3">Aksi</th>
-                                    <th className="px-4 py-3">Model</th>
-                                    <th className="px-4 py-3">Detail</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {logs.data.map((log) => (
-                                    <tr key={log.id} className="border-t">
-                                        <td className="px-4 py-3">{new Date(log.created_at).toLocaleString('id-ID')}</td>
-                                        <td className="px-4 py-3 font-semibold">{log.user?.name || '-'}</td>
-                                        <td className="px-4 py-3">{labels[log.action] || log.action}</td>
-                                        <td className="px-4 py-3">{String(log.model || '').split('\\').pop()}</td>
-                                        <td className="px-4 py-3 text-gray-600">
-                                            {log.details ? JSON.stringify(log.details) : '-'}
-                                        </td>
-                                    </tr>
-                                ))}
-                                {logs.data.length === 0 && (
-                                    <tr>
-                                        <td colSpan="5" className="px-4 py-10 text-center text-gray-500">Belum ada history.</td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+            <div className="space-y-5">
+                <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="flex items-start gap-4">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[#E56020] text-white">
+                            <HistoryIcon className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-extrabold text-slate-950">Audit aktivitas cabang</h2>
+                            <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
+                                Gunakan halaman ini untuk melihat perubahan data semua cabang atau fokus pada satu admin tertentu.
+                            </p>
+                        </div>
                     </div>
+                </section>
 
-                    <div className="flex justify-center gap-2">
-                        {logs.links.map((link, index) => (
-                            <Link
-                                key={index}
-                                href={link.url || '#'}
-                                className={`rounded-lg px-3 py-2 text-sm ${link.active ? 'bg-orange-600 text-white' : 'bg-white border'}`}
-                                dangerouslySetInnerHTML={{ __html: link.label }}
-                            />
+                <form onSubmit={apply} className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-[260px_220px_auto]">
+                    <select value={adminId} onChange={(event) => setAdminId(event.target.value)} className="h-11 rounded-lg border-slate-300 text-sm">
+                        <option value="">Semua admin/cabang</option>
+                        {admins.map((admin) => (
+                            <option key={admin.id} value={admin.id}>{admin.name}</option>
                         ))}
-                    </div>
+                    </select>
+                    <select value={action} onChange={(event) => setAction(event.target.value)} className="h-11 rounded-lg border-slate-300 text-sm">
+                        <option value="">Semua aksi</option>
+                        <option value="create">Penambahan</option>
+                        <option value="update">Pengeditan</option>
+                        <option value="delete">Penghapusan</option>
+                    </select>
+                    <button className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-800">
+                        <Filter className="h-4 w-4" />
+                        Terapkan Filter
+                    </button>
+                </form>
+
+                <div className="space-y-3">
+                    {logs.data.map((log) => {
+                        const Icon = icons[log.action] || HistoryIcon;
+                        return (
+                            <article key={log.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                                    <div className="flex gap-4">
+                                        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border ${tones[log.action] || 'border-slate-200 bg-slate-50 text-slate-700'}`}>
+                                            <Icon className="h-5 w-5" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <h3 className="font-extrabold text-slate-950">{labels[log.action] || log.action}</h3>
+                                                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
+                                                    {String(log.model || '').split('\\').pop()}
+                                                </span>
+                                            </div>
+                                            <p className="mt-1 text-sm text-slate-600">
+                                                Oleh <span className="font-bold text-[#E56020]">{log.user?.name || '-'}</span>
+                                            </p>
+                                            <p className="mt-3 break-words rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-700">
+                                                {formatDetails(log.details)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <time className="shrink-0 text-sm font-semibold text-slate-500">
+                                        {new Date(log.created_at).toLocaleString('id-ID')}
+                                    </time>
+                                </div>
+                            </article>
+                        );
+                    })}
+
+                    {logs.data.length === 0 && (
+                        <div className="rounded-lg border border-slate-200 bg-white p-10 text-center text-slate-500 shadow-sm">
+                            Belum ada history pada filter ini.
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex flex-wrap justify-center gap-2">
+                    {logs.links.map((link, index) => (
+                        <Link
+                            key={index}
+                            href={link.url || '#'}
+                            className={`rounded-lg border px-3 py-2 text-sm font-semibold ${
+                                link.active ? 'border-[#E56020] bg-[#E56020] text-white' : 'border-slate-200 bg-white text-slate-700'
+                            } ${!link.url ? 'pointer-events-none opacity-50' : ''}`}
+                            dangerouslySetInnerHTML={{ __html: link.label }}
+                        />
+                    ))}
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </SidebarLayout>
     );
 }

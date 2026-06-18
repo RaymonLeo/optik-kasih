@@ -1,4 +1,6 @@
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+// appV1.0 Rev 3 - Form cabang/admin memakai layout superadmin.
+
+import SidebarLayout from '@/Components/SidebarLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
 
 function Field({ label, error, children }) {
@@ -34,11 +36,14 @@ export default function AdminCreate({ admin = null }) {
     };
 
     return (
-        <AuthenticatedLayout header={<h2 className="text-xl font-semibold text-gray-800">{isEdit ? 'Edit Cabang/Admin' : 'Tambah Cabang/Admin'}</h2>}>
+        <SidebarLayout
+            title={isEdit ? 'Edit Cabang/Admin' : 'Tambah Cabang/Admin'}
+            subtitle="Atur identitas cabang, email login admin, jam operasional, dan alamat publik toko."
+        >
             <Head title={isEdit ? 'Edit Cabang/Admin' : 'Tambah Cabang/Admin'} />
-            <div className="py-8">
-                <form onSubmit={submit} className="mx-auto max-w-2xl space-y-5 rounded-2xl border bg-white p-5 shadow-sm">
-                    <Link href={route('super_admin.admins.index')} className="font-semibold text-orange-700 hover:underline">
+            <div>
+                <form onSubmit={submit} className="mx-auto max-w-3xl space-y-5 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                    <Link href={route('super_admin.admins.index')} className="font-semibold text-[#E56020] hover:underline">
                         Kembali
                     </Link>
 
@@ -46,7 +51,7 @@ export default function AdminCreate({ admin = null }) {
                         <input
                             value={data.name}
                             onChange={(event) => setData('name', event.target.value)}
-                            className="h-11 w-full rounded-lg border-gray-300"
+                            className="h-11 w-full rounded-lg border-slate-300"
                         />
                     </Field>
 
@@ -55,7 +60,7 @@ export default function AdminCreate({ admin = null }) {
                             type="email"
                             value={data.email}
                             onChange={(event) => setData('email', event.target.value)}
-                            className="h-11 w-full rounded-lg border-gray-300"
+                            className="h-11 w-full rounded-lg border-slate-300"
                         />
                     </Field>
 
@@ -64,7 +69,7 @@ export default function AdminCreate({ admin = null }) {
                             type="password"
                             value={data.password}
                             onChange={(event) => setData('password', event.target.value)}
-                            className="h-11 w-full rounded-lg border-gray-300"
+                            className="h-11 w-full rounded-lg border-slate-300"
                         />
                     </Field>
 
@@ -73,7 +78,7 @@ export default function AdminCreate({ admin = null }) {
                             <input
                                 value={data.branch_phone}
                                 onChange={(event) => setData('branch_phone', event.target.value)}
-                                className="h-11 w-full rounded-lg border-gray-300"
+                                className="h-11 w-full rounded-lg border-slate-300"
                                 placeholder="Contoh: 0761..."
                             />
                         </Field>
@@ -82,7 +87,7 @@ export default function AdminCreate({ admin = null }) {
                             <input
                                 value={data.branch_operational_hours}
                                 onChange={(event) => setData('branch_operational_hours', event.target.value)}
-                                className="h-11 w-full rounded-lg border-gray-300"
+                                className="h-11 w-full rounded-lg border-slate-300"
                                 placeholder="10.30-21.00 WIB"
                             />
                         </Field>
@@ -92,18 +97,18 @@ export default function AdminCreate({ admin = null }) {
                         <textarea
                             value={data.branch_address}
                             onChange={(event) => setData('branch_address', event.target.value)}
-                            className="min-h-24 w-full rounded-lg border-gray-300"
+                            className="min-h-24 w-full rounded-lg border-slate-300"
                             placeholder="Alamat lengkap cabang yang akan tampil ke pelanggan"
                         />
                     </Field>
 
                     <div className="flex justify-end">
-                        <button disabled={processing} className="rounded-lg bg-orange-600 px-5 py-2.5 font-semibold text-white disabled:opacity-60">
+                        <button disabled={processing} className="rounded-lg bg-[#E56020] px-5 py-2.5 font-semibold text-white disabled:opacity-60">
                             {isEdit ? 'Simpan Perubahan' : 'Simpan Cabang'}
                         </button>
                     </div>
                 </form>
             </div>
-        </AuthenticatedLayout>
+        </SidebarLayout>
     );
 }

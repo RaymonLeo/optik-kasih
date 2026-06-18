@@ -1,8 +1,11 @@
 <?php
 
+// appV1.0 Rev 2 - Reset password via email mengirim notifikasi keamanan setelah berhasil.
+
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Notifications\AccountSecurityNotification;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -13,6 +16,7 @@ use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Throwable;
 
 class NewPasswordController extends Controller
 {
@@ -42,6 +46,20 @@ class NewPasswordController extends Controller
                 ])->save();
 
                 event(new PasswordReset($user));
+
+                try {
+                    $user->notify(new AccountSecurityNotification(
+                        $user->role === 'super_admin'
+                            ? 'Password Superadmin Optik Kasih Direset'
+                            : 'Password Akun Optik Kasih Direset',
+                        'Password akun Anda baru saja direset menggunakan link yang dikirim melalui email.',
+                        [
+                            'Waktu reset' => now()->format('d/m/Y H:i:s'),
+                        ],
+                    ));
+                } catch (Throwable $exception) {
+                    report($exception);
+                }
             }
         );
 
