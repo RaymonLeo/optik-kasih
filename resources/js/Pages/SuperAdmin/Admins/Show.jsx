@@ -1,8 +1,8 @@
-// appV1.0 Rev 3 - Detail cabang/admin memakai layout superadmin.
+// appV1.0 Rev 5 - Tambah tombol impersonasi superadmin ke akun admin cabang.
 
 import SidebarLayout from '@/Components/SidebarLayout';
-import { Head, Link } from '@inertiajs/react';
-import { Building2, Clock, Mail, MapPin, Package, Phone, Receipt, Eye } from 'lucide-react';
+import { Head, Link, router } from '@inertiajs/react';
+import { ArrowRightCircle, Building2, Clock, Mail, MapPin, Package, Phone, Receipt, Eye } from 'lucide-react';
 
 const money = (value) => Number(value || 0).toLocaleString('id-ID');
 
@@ -29,10 +29,32 @@ export default function AdminShow({ admin, recentProducts = [], recentTransactio
                                     </p>
                                 </div>
                             </div>
-                            <Link href={route('super_admin.admins.edit', admin.id)} className="inline-flex h-10 items-center justify-center rounded-lg bg-[#E56020] px-4 text-sm font-bold text-white hover:bg-orange-700">
-                                Edit Cabang
-                            </Link>
+                            <div className="flex flex-wrap gap-2">
+                                <Link href={route('super_admin.admins.gallery', admin.id)} className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 px-4 text-sm font-bold text-slate-700 hover:bg-slate-50">
+                                    Kelola Galeri
+                                </Link>
+                                <Link href={route('super_admin.admins.edit', admin.id)} className="inline-flex h-10 items-center justify-center rounded-lg border border-orange-200 px-4 text-sm font-bold text-[#E56020] hover:bg-orange-50">
+                                    Edit Cabang
+                                </Link>
+                                <button
+                                    onClick={() => {
+                                        if (confirm(`Masuk sebagai admin "${admin.name}"? Anda bisa kembali kapan saja.`)) {
+                                            router.post(route('super_admin.admins.impersonate', admin.id));
+                                        }
+                                    }}
+                                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#E56020] px-4 text-sm font-bold text-white hover:bg-orange-700"
+                                >
+                                    <ArrowRightCircle className="h-4 w-4" />
+                                    Masuk sebagai Admin Ini
+                                </button>
+                            </div>
                         </div>
+                        {admin.branch_description && (
+                            <div className="mt-4 rounded-lg border border-orange-100 bg-orange-50 p-4 text-sm leading-6 text-slate-700">
+                                <p className="font-bold text-slate-950">Deskripsi publik cabang</p>
+                                <p className="mt-1">{admin.branch_description}</p>
+                            </div>
+                        )}
 
                         <div className="mt-5 grid gap-3 text-sm text-slate-700 md:grid-cols-3">
                             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">

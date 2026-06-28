@@ -1,5 +1,5 @@
-// resources/js/Pages/Pasien/Show.jsx
-import React, { useState } from "react";
+// appV1.0 Rev 3 - Tampilkan status pasien (aktif/nonaktif) di panel info.
+import React, { useEffect, useState } from "react";
 import { Head, usePage, router, Link } from "@inertiajs/react";
 import Modal from "@/Components/ui/Modal";
 import ConfirmDialog from "@/Components/ui/ConfirmDialog";
@@ -12,14 +12,42 @@ function Show() {
   const patient = props.patient;
   const healths = props.healths || [];
 
-  const emptyForm = { tanggal_periksa: "", kanan: {}, kiri: {} };
+  const todayStr = new Date().toISOString().split('T')[0];
+  const emptyForm = { tanggal_periksa: todayStr, kanan: {}, kiri: {} };
+  const draftKey  = `draft_health_${patient.id}`;
+
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState("");
+  const [draftRestored, setDraftRestored] = useState(false);
 
   const [addOpen, setAddOpen] = useState(false);
   const [editRow, setEditRow] = useState(null);
   const [toDelete, setToDelete] = useState(null);
   const [toast, setToast] = useState({ open:false, type:"success", message:"" });
+
+  // ── Pulihkan draft setelah session habis + re-login ─────────────────
+  useEffect(() => {
+    const draft = sessionStorage.getItem(draftKey);
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft);
+        setForm(parsed);
+        setAddOpen(true);
+        setDraftRestored(true);
+      } catch (_) {
+        sessionStorage.removeItem(draftKey);
+      }
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Auto-save draft setiap kali form berubah saat modal tambah terbuka
+  useEffect(() => {
+    if (addOpen) {
+      sessionStorage.setItem(draftKey, JSON.stringify(form));
+    }
+  }, [form, addOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const clearDraft = () => sessionStorage.removeItem(draftKey);
 
   const validate = (v) => (!v.tanggal_periksa ? "Tanggal periksa wajib diisi." : "");
 
@@ -28,8 +56,14 @@ function Show() {
     const msg = validate(form); if (msg) { setError(msg); return; }
     router.post(route("pasien.kesehatan.store", patient.id), form, {
       preserveScroll: true,
-      onSuccess: () => { setAddOpen(false); setToast({ open:true, type:"success", message:"Data mata berhasil ditambahkan!" }); router.reload({ only:["healths"] }); },
-      onError:   () => setError("Periksa input."),
+      onSuccess: () => {
+        clearDraft();
+        setAddOpen(false);
+        setDraftRestored(false);
+        setToast({ open:true, type:"success", message:"Data mata berhasil ditambahkan!" });
+        router.reload({ only:["healths"] });
+      },
+      onError: () => setError("Periksa input."),
     });
   };
 
@@ -64,7 +98,17 @@ function Show() {
         
         <div className="mb-6 rounded-2xl border bg-white p-6 shadow-sm">
           <div className="grid gap-2 md:grid-cols-2">
-            <div><span className="font-semibold">Kode Pasien :</span> {patient.kode_pasien || '—'}</div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold">Kode Pasien :</span>
+              <span>{patient.kode_pasien || '—'}</span>
+              <span className={`ml-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                patient.status === 'nonaktif'
+                  ? 'bg-gray-200 text-gray-600'
+                  : 'bg-green-100 text-green-800'
+              }`}>
+                {patient.status === 'nonaktif' ? 'Nonaktif' : 'Aktif'}
+              </span>
+            </div>
             <div><span className="font-semibold">Tanggal Buat :</span> {patient.tanggal_buat || '-'}</div>
             <div><span className="font-semibold">Nama Pasien :</span> {patient.nama_pasien}</div>
             <div><span className="font-semibold">No Hp :</span> {patient.nohp_pasien || '-'}</div>
@@ -150,12 +194,35 @@ function Show() {
       </div>
 
       {/* Modal Tambah */}
-      <Modal open={addOpen} onClose={()=>setAddOpen(false)} width="max-w-6xl">
+      <Modal open={addOpen} onClose={() => { clearDraft(); setAddOpen(false); setDraftRestored(false); }} width="max-w-6xl">
         <div className="p-6">
           <h3 className="text-2xl font-bold text-orange-700">Tambah Data Kesehatan Mata Pasien</h3>
+
+          {/* Notifikasi draft dipulihkan */}
+          {draftRestored && (
+            <div className="mt-3 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <span className="text-lg">📋</span>
+              <div>
+                <p className="font-bold">Data form sebelumnya dipulihkan</p>
+                <p className="text-xs mt-0.5">Sesi Anda tadi habis sebelum data tersimpan. Kami memulihkan isian terakhir Anda — silakan periksa kembali lalu klik Tambah.</p>
+              </div>
+              <button
+                onClick={() => { setForm(emptyForm); setDraftRestored(false); clearDraft(); }}
+                className="ml-auto shrink-0 rounded-lg border border-amber-300 px-2 py-1 text-xs font-semibold hover:bg-amber-100"
+              >
+                Reset
+              </button>
+            </div>
+          )}
+
           <div className="mt-4"><HealthForm value={form} onChange={setForm} error={error} /></div>
           <div className="mt-6 flex justify-end gap-3">
-            <button onClick={()=>setAddOpen(false)} className="rounded-lg border px-4 py-2">Batal</button>
+            <button
+              onClick={() => { clearDraft(); setAddOpen(false); setDraftRestored(false); }}
+              className="rounded-lg border px-4 py-2"
+            >
+              Batal
+            </button>
             <button onClick={doCreate} className="rounded-lg bg-orange-600 px-4 py-2 text-white hover:bg-orange-700">+ Tambah</button>
           </div>
         </div>

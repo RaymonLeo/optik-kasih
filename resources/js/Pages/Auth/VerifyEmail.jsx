@@ -1,171 +1,115 @@
-// resources/js/Pages/Auth/VerifyEmail.jsx
+// appV1.0 Rev 2 - Redesign: konsisten dengan GuestLayout split-screen.
+
 import { Head, Link, useForm } from '@inertiajs/react';
+import GuestLayout from '@/Layouts/GuestLayout';
 import { useEffect, useState } from 'react';
 
-export default function VerifyEmail({ status }) {
-  const { post, processing } = useForm({});
-  const [showAlert, setShowAlert] = useState(false);
-  const [alertType, setAlertType] = useState('info');
-  const [alertMessage, setAlertMessage] = useState('');
-
-  // Munculkan notifikasi ketika berhasil kirim ulang link
-  useEffect(() => {
-    if (status === 'verification-link-sent') {
-      setAlertType('success');
-      setAlertMessage('Link verifikasi baru sudah dikirim ke email Anda.');
-      setShowAlert(true);
-      const t = setTimeout(() => setShowAlert(false), 6000);
-      return () => clearTimeout(t);
-    } else if (status) {
-      setAlertType('info');
-      setAlertMessage(status);
-      setShowAlert(true);
-      const t = setTimeout(() => setShowAlert(false), 6000);
-      return () => clearTimeout(t);
-    }
-  }, [status]);
-
-  const resend = (e) => {
-    e.preventDefault();
-    post(route('verification.send'), {
-      onSuccess: () => {
-        setAlertType('success');
-        setAlertMessage('Link verifikasi baru sudah dikirim. Silakan cek inbox/spam.');
-        setShowAlert(true);
-        setTimeout(() => setShowAlert(false), 6000);
-      },
-    });
-  };
-
-  const Alert = ({ type, message, show, onClose }) => {
+function Alert({ type, message, show, onClose }) {
     if (!show) return null;
-    const classes = {
-      success: 'bg-green-50 border-l-4 border-green-500 text-green-700',
-      info: 'bg-blue-50 border-l-4 border-blue-500 text-blue-700',
-      error: 'bg-red-50 border-l-4 border-red-500 text-red-700',
+    const styles = {
+        success: 'border-green-200 bg-green-50 text-green-700',
+        info:    'border-blue-200  bg-blue-50  text-blue-700',
+        error:   'border-red-200   bg-red-50   text-red-700',
     };
     const icons = { success: '✅', info: 'ℹ️', error: '⚠️' };
     return (
-      <div className={`${classes[type]} p-4 rounded-md shadow-sm mb-5 animate-fade-in`}>
-        <div className="flex items-center gap-2">
-          <span className="text-lg">{icons[type]}</span>
-          <p className="text-sm font-medium">{message}</p>
-          <button onClick={onClose} className="ml-auto text-xl leading-none hover:opacity-70">
-            ×
-          </button>
+        <div className={`mb-5 flex items-start gap-3 rounded-xl border p-4 text-sm ${styles[type] ?? styles.info}`}>
+            <span className="mt-0.5 shrink-0 text-base">{icons[type] ?? 'ℹ️'}</span>
+            <p className="flex-1 font-medium leading-snug">{message}</p>
+            <button type="button" onClick={onClose} className="shrink-0 opacity-60 hover:opacity-100">✕</button>
         </div>
-      </div>
     );
-  };
-
-  return (
-    <>
-      <Head title="Verifikasi Email" />
-
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{
-          backgroundImage: "url('/images/bg-optik.png')",
-          backgroundSize: 'cover',
-          backgroundRepeat: 'repeat',
-        }}
-      >
-        <div className="bg-[#FFE0D0] rounded-[32px] shadow-xl w-[90%] max-w-xl p-8 md:p-10">
-          {/* Logo */}
-          <div className="flex flex-col items-center mb-6">
-            <img src="/images/logo-optik.png" alt="Optik Kasih" className="w-56 h-auto mb-2" />
-          </div>
-
-          <h1 className="text-2xl md:text-3xl font-bold text-center text-gray-800 mb-2">
-            Verifikasi Email
-          </h1>
-
-          <p className="text-sm text-center text-gray-600 mb-6">
-            Kami telah mengirimkan link verifikasi ke email Anda.
-            <br className="hidden sm:block" />
-            Jika belum menerima, silakan kirim ulang menggunakan tombol di bawah ini.
-          </p>
-
-          <Alert
-            type={alertType}
-            message={alertMessage}
-            show={showAlert}
-            onClose={() => setShowAlert(false)}
-          />
-
-          {/* Tombol aksi */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={resend}
-              disabled={processing}
-              className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold py-3 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg disabled:cursor-not-allowed"
-            >
-              {processing ? (
-                <div className="flex items-center justify-center gap-2">
-                  <svg
-                    className="animate-spin h-5 w-5"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                    />
-                  </svg>
-                  Mengirim...
-                </div>
-              ) : (
-                'Kirim Ulang Email Verifikasi'
-              )}
-            </button>
-
-            <Link
-              href={route('logout')}
-              method="post"
-              as="button"
-              className="flex-1 bg-white text-gray-800 border border-gray-300 hover:border-gray-400 font-semibold py-3 rounded-lg transition-all duration-200 shadow-sm hover:shadow"
-            >
-              Keluar
-            </Link>
-          </div>
-
-          {/* Link balik ke login (opsional) */}
-          <div className="text-center mt-6">
-            <Link
-              href={route('login')}
-              className="text-sm text-orange-600 hover:text-orange-700 hover:underline font-medium"
-            >
-              Kembali ke Login
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      <style jsx>{`
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-            transform: translateY(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.3s ease-out;
-        }
-      `}</style>
-    </>
-  );
 }
+
+export default function VerifyEmail({ status }) {
+    const { post, processing } = useForm({});
+    const [alert, setAlert] = useState({ show: false, type: 'info', message: '' });
+
+    const showAlert = (type, message) => setAlert({ show: true, type, message });
+
+    useEffect(() => {
+        if (status === 'verification-link-sent') {
+            showAlert('success', 'Link verifikasi baru sudah dikirim ke email Anda. Silakan cek inbox atau folder spam.');
+        } else if (status) {
+            showAlert('info', status);
+        }
+    }, [status]);
+
+    const resend = (e) => {
+        e.preventDefault();
+        post(route('verification.send'), {
+            onSuccess: () => showAlert('success', 'Link verifikasi baru sudah dikirim. Silakan cek inbox/spam.'),
+        });
+    };
+
+    return (
+        <>
+            <Head title="Verifikasi Email" />
+
+            {/* Header */}
+            <div className="mb-8">
+                <div className="mb-3 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-100 text-2xl">
+                    📧
+                </div>
+                <h1 className="text-3xl font-extrabold text-slate-900 mb-2">Verifikasi Email</h1>
+                <p className="text-slate-500 text-sm leading-relaxed">
+                    Terima kasih sudah mendaftar! Sebelum memulai, harap verifikasi alamat email Anda dengan mengklik tautan yang baru saja kami kirimkan.
+                </p>
+            </div>
+
+            <Alert
+                type={alert.type}
+                message={alert.message}
+                show={alert.show}
+                onClose={() => setAlert((a) => ({ ...a, show: false }))}
+            />
+
+            {/* Info card */}
+            <div className="mb-6 rounded-xl border border-slate-100 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+                <p className="leading-relaxed">
+                    Jika Anda belum menerima email verifikasi, kami dengan senang hati akan mengirimkannya kembali menggunakan tombol di bawah ini.
+                </p>
+            </div>
+
+            <div className="space-y-3">
+                <button
+                    onClick={resend}
+                    disabled={processing}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#E56020] py-3.5 font-bold text-white shadow-lg shadow-orange-500/25 hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
+                >
+                    {processing ? (
+                        <>
+                            <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                            Mengirim...
+                        </>
+                    ) : (
+                        'Kirim Ulang Email Verifikasi'
+                    )}
+                </button>
+
+                <Link
+                    href={route('logout')}
+                    method="post"
+                    as="button"
+                    className="w-full flex items-center justify-center rounded-xl border border-slate-200 bg-white py-3.5 font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 text-sm"
+                >
+                    Keluar dari Akun
+                </Link>
+            </div>
+
+            <div className="mt-6 text-center">
+                <Link
+                    href={route('login')}
+                    className="text-sm font-medium text-[#E56020] hover:text-orange-700 hover:underline transition-colors"
+                >
+                    ← Kembali ke Login
+                </Link>
+            </div>
+        </>
+    );
+}
+
+VerifyEmail.layout = (page) => <GuestLayout>{page}</GuestLayout>;

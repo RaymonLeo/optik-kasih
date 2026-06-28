@@ -1,5 +1,7 @@
 <?php
 
+// appV1.0 Rev 4 - Audit transaksi dan permintaan persetujuan penghapusan cabang.
+
 namespace App\Http\Controllers;
 
 use App\Models\Transaksi;
@@ -9,6 +11,8 @@ use App\Models\Lensa;
 use App\Models\User;
 use App\Models\Pengeluaran;
 use App\Models\ActivityLog;
+use App\Models\DeletionRequest;
+use App\Support\SystemNotifier;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Carbon;
@@ -489,13 +493,59 @@ class TransaksiController extends Controller
     }
 
     // ----------------- DESTROY -----------------
-    public function destroy(Transaksi $transaksi)
+    public function destroy(Request $request, Transaksi $transaksi)
     {
         if (auth()->user()->role !== 'super_admin' && $transaksi->admin_id !== auth()->id()) {
             abort(403);
         }
 
-        $this->log('delete', $transaksi);
+        if (auth()->user()->role === 'admin') {
+            $data = $request->validate([
+                'delete_reason' => ['required', 'string', 'max:1000'],
+            ]);
+
+            $pending = DeletionRequest::query()
+                ->where('requester_id', auth()->id())
+                ->where('subject_type', 'transaksi')
+                ->where('subject_id', $transaksi->id)
+                ->where('status', DeletionRequest::PENDING)
+                ->exists();
+
+            if ($pending) {
+                return back()->with('error', 'Permintaan penghapusan transaksi ini masih menunggu persetujuan.');
+            }
+
+            $deletionRequest = DeletionRequest::create([
+                'requester_id' => auth()->id(),
+                'subject_type' => 'transaksi',
+                'subject_id' => $transaksi->id,
+                'subject_label' => "Transaksi #{$transaksi->id}",
+                'reason' => $data['delete_reason'],
+                'snapshot' => $this->transactionSnapshot($transaksi),
+            ]);
+
+            $this->log('delete_requested', $transaksi, [
+                'cabang' => auth()->user()->name,
+                'deletion_request_id' => $deletionRequest->id,
+                'alasan_penghapusan' => $data['delete_reason'],
+                'snapshot' => $deletionRequest->snapshot,
+            ]);
+
+            SystemNotifier::toSuperAdmins(
+                'deletion_requested',
+                'Persetujuan penghapusan transaksi',
+                sprintf('Cabang %s meminta penghapusan transaksi #%d.', auth()->user()->name, $transaksi->id),
+                route('super_admin.deletion_requests.index'),
+                ['deletion_request_id' => $deletionRequest->id, 'subject_type' => 'transaksi'],
+            );
+
+            return redirect()->route('admin.transaksi.index')->with('success', 'Permintaan penghapusan dikirim ke superadmin.');
+        }
+
+        $this->log('delete', $transaksi, [
+            'snapshot' => $this->transactionSnapshot($transaksi),
+            'dihapus_langsung_oleh_superadmin' => true,
+        ]);
         $transaksi->delete();
         return back()->with('success', 'Transaksi terhapus');
     }
@@ -618,20 +668,35 @@ class TransaksiController extends Controller
         ]);
     }
 
-    private function log(string $action, Transaksi $transaksi): void
+    private function transactionSnapshot(Transaksi $transaksi): array
+    {
+        return [
+            'id' => $transaksi->id,
+            'pasien_id' => $transaksi->pasien_id,
+            'produk_id' => $transaksi->produk_id,
+            'lensa_id' => $transaksi->lensa_id,
+            'tanggal_pesan' => optional($transaksi->tanggal_pesan)->toDateString(),
+            'harga' => $transaksi->harga,
+            'panjar' => $transaksi->panjar,
+            'sisa' => $transaksi->sisa,
+            'admin_id' => $transaksi->admin_id,
+        ];
+    }
+
+    private function log(string $action, Transaksi $transaksi, array $details = []): void
     {
         ActivityLog::create([
             'user_id' => auth()->id(),
             'action' => $action,
             'model' => Transaksi::class,
             'model_id' => $transaksi->id,
-            'details' => [
+            'details' => array_merge([
                 'pasien_id' => $transaksi->pasien_id,
                 'admin_id' => $transaksi->admin_id,
                 'harga' => $transaksi->harga,
                 'panjar' => $transaksi->panjar,
                 'sisa' => $transaksi->sisa,
-            ],
+            ], $details),
         ]);
     }
 }

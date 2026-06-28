@@ -1,26 +1,32 @@
-// appV1.0 Rev 3 - History perubahan data dengan tampilan audit superadmin.
+// appV1.0 Rev 4 - History perubahan data dan keputusan persetujuan superadmin.
 
 import SidebarLayout from '@/Components/SidebarLayout';
 import { Head, Link, router } from '@inertiajs/react';
-import { Filter, History as HistoryIcon, PlusCircle, PencilLine, Trash2 } from 'lucide-react';
+import { Clock3, Filter, History as HistoryIcon, PlusCircle, PencilLine, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
 const labels = {
     create: 'Tambah Data',
     update: 'Edit Data',
     delete: 'Hapus Data',
+    delete_requested: 'Permintaan Hapus',
+    delete_rejected: 'Permintaan Hapus Ditolak',
 };
 
 const icons = {
     create: PlusCircle,
     update: PencilLine,
     delete: Trash2,
+    delete_requested: Clock3,
+    delete_rejected: Trash2,
 };
 
 const tones = {
     create: 'bg-emerald-50 text-emerald-700 border-emerald-100',
     update: 'bg-orange-50 text-[#E56020] border-orange-100',
     delete: 'bg-red-50 text-red-700 border-red-100',
+    delete_requested: 'bg-amber-50 text-amber-700 border-amber-100',
+    delete_rejected: 'bg-red-50 text-red-700 border-red-100',
 };
 
 function formatDetails(details) {
@@ -31,7 +37,7 @@ function formatDetails(details) {
     try {
         const parsed = typeof details === 'string' ? JSON.parse(details) : details;
         return Object.entries(parsed)
-            .map(([key, value]) => `${key}: ${value ?? '-'}`)
+            .map(([key, value]) => `${key}: ${typeof value === 'object' ? JSON.stringify(value) : value ?? '-'}`)
             .join(' | ');
     } catch {
         return String(details);
@@ -53,7 +59,7 @@ export default function History({ logs, admins = [], filters = {} }) {
     return (
         <SidebarLayout
             title="History Perubahan Data"
-            subtitle="Audit setiap penambahan, pengeditan, dan penghapusan data oleh admin cabang."
+            subtitle="Audit setiap penambahan, pengeditan, penghapusan, dan keputusan persetujuan oleh admin maupun superadmin."
         >
             <Head title="History Perubahan Data" />
 
@@ -66,7 +72,7 @@ export default function History({ logs, admins = [], filters = {} }) {
                         <div>
                             <h2 className="text-2xl font-extrabold text-slate-950">Audit aktivitas cabang</h2>
                             <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
-                                Gunakan halaman ini untuk melihat perubahan data semua cabang atau fokus pada satu admin tertentu.
+                                Gunakan halaman ini untuk melihat perubahan data seluruh pengguna atau fokus pada satu admin cabang tertentu.
                             </p>
                         </div>
                     </div>
@@ -84,6 +90,8 @@ export default function History({ logs, admins = [], filters = {} }) {
                         <option value="create">Penambahan</option>
                         <option value="update">Pengeditan</option>
                         <option value="delete">Penghapusan</option>
+                        <option value="delete_requested">Permintaan penghapusan</option>
+                        <option value="delete_rejected">Penolakan penghapusan</option>
                     </select>
                     <button className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-800">
                         <Filter className="h-4 w-4" />

@@ -1,3 +1,5 @@
+// appV1.0 Rev 4 - Dialog konfirmasi mendukung input tambahan untuk permintaan sensitif.
+
 import React from "react";
 import Modal from "./Modal";
 
@@ -5,6 +7,7 @@ export default function ConfirmDialog({
   open, onCancel, onConfirm,
   title = "Konfirmasi", description = "Lanjutkan aksi ini?",
   cancelText = "Batal", confirmText = "Ya, Lanjut", danger = false,
+  children,
 }) {
   return (
     <Modal open={open} onClose={onCancel} width="max-w-lg">
@@ -16,6 +19,7 @@ export default function ConfirmDialog({
             <p className="mt-1 text-sm text-gray-600">{description}</p>
           </div>
         </div>
+        {children && <div className="mt-4">{children}</div>}
         <div className="mt-6 flex justify-end gap-3">
           <button onClick={onCancel} className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50">
             {cancelText}

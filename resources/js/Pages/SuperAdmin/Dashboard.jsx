@@ -1,4 +1,4 @@
-// appV1.0 Rev 3 - Dashboard superadmin bergaya pusat manajemen toko.
+// appV1.0 Rev 4 - Tambah grafik penjualan harian dengan filter periode dan cabang.
 
 import SidebarLayout from '@/Components/SidebarLayout';
 import { Head, Link, router } from '@inertiajs/react';
@@ -59,13 +59,102 @@ function WorkCard({ title, description, href, icon: Icon, accent = 'bg-[#E56020]
     );
 }
 
-export default function SuperAdminDashboard({ stats, admins = [], filters = {} }) {
-    const [selectedBranch, setSelectedBranch] = useState(filters.branch_id || '');
+const PERIODS = [
+    { key: 'kemarin', label: 'Kemarin' },
+    { key: '7',       label: '7 Hari'  },
+    { key: '30',      label: '30 Hari' },
+    { key: '365',     label: '1 Tahun' },
+];
 
-    const handleFilter = (event) => {
-        const branchId = event.target.value;
-        setSelectedBranch(branchId);
-        router.get(route('super_admin.dashboard'), { branch_id: branchId }, { preserveState: true, replace: true });
+function SalesChart({ data = [] }) {
+    if (!data.length) {
+        return (
+            <div className="flex h-48 items-center justify-center text-sm text-slate-400">
+                Belum ada data transaksi pada periode ini.
+            </div>
+        );
+    }
+
+    const maxTotal = Math.max(...data.map((d) => d.total), 1);
+    const chartH = 160;
+    const barW = Math.max(8, Math.min(40, Math.floor(560 / data.length) - 4));
+    const gap = Math.max(2, Math.min(8, Math.floor(560 / data.length) * 0.15));
+    const totalW = data.length * (barW + gap);
+    const svgW = Math.max(totalW, 400);
+
+    const fmt = (v) => {
+        if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}jt`;
+        if (v >= 1_000) return `${(v / 1_000).toFixed(0)}rb`;
+        return String(v);
+    };
+
+    const fmtDate = (dateStr) => {
+        const d = new Date(dateStr);
+        return `${d.getDate()}/${d.getMonth() + 1}`;
+    };
+
+    return (
+        <div className="overflow-x-auto">
+            <svg width={svgW} height={chartH + 40} viewBox={`0 0 ${svgW} ${chartH + 40}`} className="min-w-full">
+                {/* Y-axis guidelines */}
+                {[0, 0.25, 0.5, 0.75, 1].map((frac) => {
+                    const y = chartH - frac * chartH;
+                    return (
+                        <g key={frac}>
+                            <line x1="0" y1={y} x2={svgW} y2={y} stroke="#e2e8f0" strokeWidth="1" />
+                            <text x="2" y={y - 2} fontSize="9" fill="#94a3b8">{fmt(maxTotal * frac)}</text>
+                        </g>
+                    );
+                })}
+
+                {/* Bars */}
+                {data.map((d, i) => {
+                    const barH = Math.max(2, (d.total / maxTotal) * chartH);
+                    const x = i * (barW + gap);
+                    const y = chartH - barH;
+                    return (
+                        <g key={d.tanggal}>
+                            <rect x={x} y={y} width={barW} height={barH} rx="2" fill="#E56020" opacity="0.85" />
+                            {barH > 20 && (
+                                <text x={x + barW / 2} y={y + 12} fontSize="8" fill="white" textAnchor="middle">
+                                    {fmt(d.total)}
+                                </text>
+                            )}
+                            <text x={x + barW / 2} y={chartH + 14} fontSize="9" fill="#64748b" textAnchor="middle">
+                                {fmtDate(d.tanggal)}
+                            </text>
+                            <text x={x + barW / 2} y={chartH + 26} fontSize="8" fill="#94a3b8" textAnchor="middle">
+                                {d.jumlah}x
+                            </text>
+                        </g>
+                    );
+                })}
+            </svg>
+        </div>
+    );
+}
+
+export default function SuperAdminDashboard({ stats, chartData = [], admins = [], filters = {} }) {
+    const [selectedBranch, setSelectedBranch] = useState(filters.branch_id || '');
+    const [period, setPeriod] = useState(filters.period || '7');
+
+    const applyFilter = (newBranch, newPeriod) => {
+        router.get(
+            route('super_admin.dashboard'),
+            { branch_id: newBranch, period: newPeriod },
+            { preserveState: true, replace: true }
+        );
+    };
+
+    const handleBranchChange = (event) => {
+        const v = event.target.value;
+        setSelectedBranch(v);
+        applyFilter(v, period);
+    };
+
+    const handlePeriod = (p) => {
+        setPeriod(p);
+        applyFilter(selectedBranch, p);
     };
 
     const selectedAdmin = admins.find((admin) => String(admin.id) === String(selectedBranch));
@@ -98,7 +187,7 @@ export default function SuperAdminDashboard({ stats, admins = [], filters = {} }
                             <label className="text-xs font-bold uppercase tracking-wide text-slate-400">Filter Cabang</label>
                             <select
                                 value={selectedBranch}
-                                onChange={handleFilter}
+                                onChange={handleBranchChange}
                                 className="mt-2 h-11 w-full rounded-lg border-white/10 bg-white text-sm font-semibold text-slate-900"
                             >
                                 <option value="">Semua cabang toko</option>
@@ -121,6 +210,39 @@ export default function SuperAdminDashboard({ stats, admins = [], filters = {} }
                     <StatCard label="Pemasukan" value={`Rp ${money(stats.pendapatan)}`} helper="Akumulasi sesuai filter" icon={Wallet} tone="emerald" />
                     <StatCard label="Pengeluaran" value={`Rp ${money(stats.pengeluaran)}`} helper="Biaya operasional" icon={TrendingDown} tone="red" />
                 </div>
+
+                {/* Grafik Penjualan */}
+                <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h2 className="text-lg font-extrabold text-slate-950">Grafik Penjualan Harian</h2>
+                            <p className="mt-1 text-sm text-slate-500">
+                                {selectedAdmin ? `Cabang: ${selectedAdmin.name}` : 'Semua cabang'} — total transaksi per hari
+                            </p>
+                        </div>
+                        <div className="flex gap-2">
+                            {PERIODS.map(({ key, label }) => (
+                                <button
+                                    key={key}
+                                    onClick={() => handlePeriod(key)}
+                                    className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition ${
+                                        period === key
+                                            ? 'border-[#E56020] bg-[#E56020] text-white'
+                                            : 'border-slate-200 bg-white text-slate-600 hover:border-orange-300 hover:text-orange-600'
+                                    }`}
+                                >
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <SalesChart data={chartData} />
+                    {chartData.length > 0 && (
+                        <p className="mt-2 text-right text-xs text-slate-400">
+                            Total: Rp {money(chartData.reduce((s, d) => s + d.total, 0))} dari {chartData.reduce((s, d) => s + d.jumlah, 0)} transaksi
+                        </p>
+                    )}
+                </section>
 
                 <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
                     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">

@@ -1,4 +1,5 @@
-// resources/js/Pages/Transaksi/Index.jsx
+// appV1.0 Rev 5 - Filter tanggal: 2 input (dari-sampai) aktif hanya saat "Jangka Waktu" dipilih.
+
 import React, { useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import SidebarLayout from "@/Components/SidebarLayout";
@@ -19,17 +20,38 @@ function Currency({ value }) {
 export default function Index() {
   const { props } = usePage();
   const { transactions, totalHariIni, query = {} } = props;
+  const isAdmin = props.auth?.user?.role === "admin";
 
   const [search, setSearch] = useState(query.search || "");
-  const [date, setDate]     = useState(query.date || "");
-  const [range, setRange]   = useState(query.range || "day");
+  const [date,   setDate]   = useState(query.date   || "");
+  const [to,     setTo]     = useState(query.to     || "");
+  const [range,  setRange]  = useState(query.range  || "day");
+
+  // "custom" = jangka waktu. Semua range lain: tanggal ke-2 dikunci.
+  const isCustom = range === "custom";
 
   function apply(e) {
     e?.preventDefault?.();
-    router.get(route("admin.transaksi.index"), { search, date, range }, { preserveState: true, replace: true });
+    const params = { search, range };
+    if (range !== "all") params.date = date;
+    if (isCustom)        params.to   = to;
+    router.get(route("admin.transaksi.index"), params, { preserveState: true, replace: true });
   }
 
-  const dateEnabled = ["day", "week", "month", "year", "custom"].includes(range);
+  const requestDelete = (row) => {
+    const confirmed = window.confirm(isAdmin
+      ? "Kirim permintaan penghapusan transaksi ke superadmin?"
+      : "Hapus transaksi ini secara permanen?");
+    if (!confirmed) return;
+
+    const reason = isAdmin ? window.prompt("Alasan penghapusan transaksi:") : null;
+    if (isAdmin && !reason?.trim()) return;
+
+    router.delete(route("admin.transaksi.destroy", row.id), {
+      data: isAdmin ? { delete_reason: reason.trim() } : {},
+      preserveScroll: true,
+    });
+  };
 
   return (
     <div className="p-6">
@@ -45,38 +67,73 @@ export default function Index() {
 
       <div className="bg-white shadow rounded-xl p-4">
         {/* Filter */}
-        <form onSubmit={apply} className="flex flex-wrap items-center gap-3">
-          <select
-            className="h-10 px-3 rounded-lg border"
-            value={range}
-            onChange={(e) => setRange(e.target.value)}
-          >
-            <option value="day">Hari ini</option>
-            <option value="week">Minggu ini</option>
-            <option value="month">Bulan ini</option>
-            <option value="year">Tahun ini</option>
-            <option value="all">Semua</option>
-            <option value="custom">Custom (pilih tanggal)</option>
-          </select>
+        <form onSubmit={apply} className="flex flex-wrap items-end gap-3">
+          {/* Pilihan periode */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-slate-500">Periode</label>
+            <select
+              className="h-10 px-3 rounded-lg border border-slate-300 bg-white text-sm"
+              value={range}
+              onChange={(e) => setRange(e.target.value)}
+            >
+              <option value="day">Hari ini</option>
+              <option value="week">Minggu ini</option>
+              <option value="month">Bulan ini</option>
+              <option value="year">Tahun ini</option>
+              <option value="all">Semua</option>
+              <option value="custom">Jangka Waktu</option>
+            </select>
+          </div>
 
-          <input
-            type="date"
-            value={date || ""}
-            onChange={(e) => setDate(e.target.value)}
-            className="h-10 px-3 rounded-lg border"
-            disabled={!dateEnabled}
-          />
-
-          <div className="ml-auto flex gap-2">
+          {/* Dari tanggal */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-slate-500">
+              {isCustom ? "Dari Tanggal" : "Tanggal Acuan"}
+            </label>
             <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari..."
-              className="h-10 px-3 rounded-lg border min-w-[260px]"
+              type="date"
+              value={date || ""}
+              onChange={(e) => setDate(e.target.value)}
+              className="h-10 px-3 rounded-lg border border-slate-300 text-sm disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+              disabled={range === "all"}
             />
-            <button className="h-10 px-4 rounded-lg bg-gray-900 text-white" type="submit">Terapkan</button>
-            <Link href={route("admin.transaksi.create")} className="h-10 px-4 rounded-lg bg-orange-600 text-white flex items-center">
+          </div>
+
+          {/* Sampai tanggal — aktif hanya saat "Jangka Waktu" */}
+          <div className="flex flex-col gap-1">
+            <label className={`text-xs font-semibold ${isCustom ? "text-slate-500" : "text-slate-300"}`}>
+              Sampai Tanggal
+            </label>
+            <input
+              type="date"
+              value={to || ""}
+              onChange={(e) => setTo(e.target.value)}
+              min={date || undefined}
+              className="h-10 px-3 rounded-lg border border-slate-300 text-sm disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+              disabled={!isCustom}
+              title={!isCustom ? "Pilih 'Jangka Waktu' untuk mengaktifkan" : ""}
+            />
+          </div>
+
+          {/* Search + actions */}
+          <div className="ml-auto flex items-end gap-2">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-slate-500">Cari</label>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Cari ID, lensa, pasien..."
+                className="h-10 px-3 rounded-lg border border-slate-300 text-sm min-w-[220px]"
+              />
+            </div>
+            <button className="h-10 px-4 rounded-lg bg-gray-900 text-white text-sm font-semibold" type="submit">
+              Terapkan
+            </button>
+            <Link
+              href={route("admin.transaksi.create")}
+              className="h-10 px-4 rounded-lg bg-orange-600 text-white text-sm font-semibold flex items-center whitespace-nowrap"
+            >
               + Tambah Transaksi
             </Link>
           </div>
@@ -108,7 +165,7 @@ export default function Index() {
                       <Link href={route("admin.transaksi.edit", row.id)} className="p-2 rounded-lg bg-violet-100 text-violet-700" title="Edit">✏️</Link>
                       <Link href={route("admin.transaksi.show", row.id)} className="p-2 rounded-lg bg-gray-100" title="Detail">🔍</Link>
                       <button
-                        onClick={() => { if (confirm("Hapus transaksi ini secara permanen?")) router.delete(route("admin.transaksi.destroy", row.id)); }}
+                        onClick={() => requestDelete(row)}
                         className="p-2 rounded-lg bg-rose-100 text-rose-700"
                         title="Hapus"
                       >🗑️</button>
@@ -139,4 +196,4 @@ export default function Index() {
   );
 }
 
-Index.layout = (page) => <SidebarLayout title="">{page}</SidebarLayout>;
+Index.layout = (page) => <SidebarLayout title="Transaksi Cabang">{page}</SidebarLayout>;

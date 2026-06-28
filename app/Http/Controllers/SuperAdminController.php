@@ -1,5 +1,7 @@
 <?php
 
+// appV1.0 Rev 8 - Impersonasi: superadmin dapat masuk langsung ke akun admin cabang.
+
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
@@ -41,7 +43,6 @@ class SuperAdminController extends Controller
         $totalPendapatan = Transaksi::sum('harga');
         $totalPengeluaran = Pengeluaran::sum('jumlah');
 
-        // Optional filter for branch
         $branchId = $request->get('branch_id');
         if ($branchId) {
             $totalPendapatan = Transaksi::where('admin_id', $branchId)->sum('harga');
@@ -49,18 +50,44 @@ class SuperAdminController extends Controller
             $transaksiCount = Transaksi::where('admin_id', $branchId)->count();
         }
 
+        // Grafik penjualan harian
+        $period = $request->get('period', '7');
+        $days = match ($period) {
+            'kemarin' => 1,
+            '30'      => 30,
+            '365'     => 365,
+            default   => 7,
+        };
+
+        $chartQ = Transaksi::query()
+            ->selectRaw('DATE(tanggal_pesan) as tanggal, SUM(harga) as total, COUNT(*) as jumlah')
+            ->where('tanggal_pesan', '>=', now()->subDays($days)->toDateString())
+            ->groupByRaw('DATE(tanggal_pesan)')
+            ->orderBy('tanggal');
+
+        if ($branchId) {
+            $chartQ->where('admin_id', $branchId);
+        }
+
+        $chartData = $chartQ->get()->map(fn($row) => [
+            'tanggal' => $row->tanggal,
+            'total'   => (float) $row->total,
+            'jumlah'  => (int) $row->jumlah,
+        ]);
+
         $admins = User::where('role', 'admin')->get();
 
         return Inertia::render('SuperAdmin/Dashboard', [
             'stats' => [
-                'admins' => $adminCount,
-                'produk' => $produkCount,
-                'transaksi' => $transaksiCount,
-                'pendapatan' => $totalPendapatan,
+                'admins'      => $adminCount,
+                'produk'      => $produkCount,
+                'transaksi'   => $transaksiCount,
+                'pendapatan'  => $totalPendapatan,
                 'pengeluaran' => $totalPengeluaran,
             ],
-            'admins' => $admins,
-            'filters' => $request->only('branch_id')
+            'chartData' => $chartData,
+            'admins'    => $admins,
+            'filters'   => $request->only(['branch_id', 'period']),
         ]);
     }
 
@@ -96,9 +123,11 @@ class SuperAdminController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8'],
-            'branch_phone' => ['nullable', 'string', 'max:40'],
+            'branch_phone' => ['nullable', 'regex:/^(?:0|62)?8\d{8,13}$/'],
             'branch_operational_hours' => ['nullable', 'string', 'max:120'],
             'branch_address' => ['nullable', 'string'],
+            'branch_description' => ['nullable', 'string', 'max:2000'],
+            'branch_map_link' => ['nullable', 'string', 'max:2000'],
         ]);
 
         $admin = User::create([
@@ -109,6 +138,8 @@ class SuperAdminController extends Controller
             'branch_phone' => $data['branch_phone'] ?? null,
             'branch_operational_hours' => $data['branch_operational_hours'] ?? null,
             'branch_address' => $data['branch_address'] ?? null,
+            'branch_description' => $data['branch_description'] ?? null,
+            'branch_map_link' => $data['branch_map_link'] ?? null,
         ]);
 
         $this->log('create', $admin);
@@ -143,6 +174,8 @@ class SuperAdminController extends Controller
                 'branch_phone',
                 'branch_operational_hours',
                 'branch_address',
+                'branch_description',
+                'branch_map_link',
             ]),
         ]);
     }
@@ -155,9 +188,11 @@ class SuperAdminController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($admin->id)],
             'password' => ['nullable', 'string', 'min:8'],
-            'branch_phone' => ['nullable', 'string', 'max:40'],
+            'branch_phone' => ['nullable', 'regex:/^(?:0|62)?8\d{8,13}$/'],
             'branch_operational_hours' => ['nullable', 'string', 'max:120'],
             'branch_address' => ['nullable', 'string'],
+            'branch_description' => ['nullable', 'string', 'max:2000'],
+            'branch_map_link' => ['nullable', 'string', 'max:2000'],
         ]);
 
         $payload = [
@@ -166,6 +201,8 @@ class SuperAdminController extends Controller
             'branch_phone' => $data['branch_phone'] ?? null,
             'branch_operational_hours' => $data['branch_operational_hours'] ?? null,
             'branch_address' => $data['branch_address'] ?? null,
+            'branch_description' => $data['branch_description'] ?? null,
+            'branch_map_link' => $data['branch_map_link'] ?? null,
         ];
 
         if (!empty($data['password'])) {
@@ -188,6 +225,29 @@ class SuperAdminController extends Controller
         return redirect()->route('super_admin.admins.index')->with('success', 'Cabang/admin berhasil dihapus.');
     }
 
+    public function impersonate(User $admin)
+    {
+        abort_unless($admin->role === 'admin', 404);
+
+        session(['impersonating_by' => auth()->id()]);
+        auth()->loginUsingId($admin->id);
+
+        return redirect()->route('admin.dashboard');
+    }
+
+    public function stopImpersonation()
+    {
+        $originalId = session('impersonating_by');
+        if (! $originalId) {
+            return redirect()->route('admin.dashboard');
+        }
+
+        auth()->loginUsingId($originalId);
+        session()->forget('impersonating_by');
+
+        return redirect()->route('super_admin.admins.index');
+    }
+
     private function log(string $action, User $admin): void
     {
         ActivityLog::create([
@@ -201,6 +261,7 @@ class SuperAdminController extends Controller
                 'role' => $admin->role,
                 'branch_phone' => $admin->branch_phone,
                 'branch_address' => $admin->branch_address,
+                'branch_description' => $admin->branch_description,
             ],
         ]);
     }

@@ -1,5 +1,7 @@
 <?php
 
+// appV1.0 Rev 7 - Tambah brand_produk ke fillable untuk merek produk.
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -13,12 +15,14 @@ class Produk extends Model
     protected $fillable = [
         'nama_produk',
         'kategori_produk',
+        'brand_produk',
         'jumlah_produk',
         'harga_produk',
         'gambar_produk',
+        'deskripsi_produk',
         'tanggal_masuk',
         'expired_produk',
-        'admin_id'
+        'admin_id',
     ];
 
     public function admin()
@@ -36,6 +40,11 @@ class Produk extends Model
     public function transaksi(): HasMany
     {
         return $this->hasMany(Transaksi::class);
+    }
+
+    public function images(): HasMany
+    {
+        return $this->hasMany(ProductImage::class, 'produk_id')->orderBy('sort_order')->orderBy('id');
     }
 
     /** Contoh scope stok menipis */

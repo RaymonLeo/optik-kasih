@@ -1,11 +1,14 @@
-// appV1.0 Rev 3 - Sidebar operasional untuk manajemen toko Optik Kasih.
+// appV1.0 Rev 6 - Banner impersonasi saat superadmin masuk sebagai admin cabang.
 
 import React, { useMemo, useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import {
   Activity,
+  ArrowLeftCircle,
   BarChart3,
+  Bell,
   Building2,
+  ClipboardCheck,
   ChevronRight,
   Glasses,
   History,
@@ -29,6 +32,9 @@ export default function SidebarLayout({ children, title = "Dashboard", subtitle 
   const { url, props } = usePage();
   const user = props.auth?.user;
   const isSuperAdmin = user?.role === "super_admin";
+  const isImpersonating = Boolean(props.is_impersonating);
+  const unreadNotifications = Number(props.notifications?.unread_count || 0);
+  const pendingDeletionRequests = Number(props.approvals?.pending_deletion_count || 0);
 
   const isActive = (href) => url === href || url.startsWith(`${href}/`);
 
@@ -54,6 +60,7 @@ export default function SidebarLayout({ children, title = "Dashboard", subtitle 
         {
           label: "Audit",
           items: [
+            { name: "Persetujuan Hapus", icon: ClipboardCheck, href: "/super_admin/deletion-requests", active: isActive("/super_admin/deletion-requests"), badge: pendingDeletionRequests },
             { name: "History Perubahan", icon: History, href: "/super_admin/history", active: isActive("/super_admin/history") },
           ],
         },
@@ -69,10 +76,11 @@ export default function SidebarLayout({ children, title = "Dashboard", subtitle 
           { name: "Transaksi", icon: ReceiptText, href: "/admin/transaksi", active: isActive("/admin/transaksi") },
           { name: "Lensa", icon: Glasses, href: "/admin/lensa", active: isActive("/admin/lensa") },
           { name: "Produk", icon: Package, href: "/admin/produk", active: isActive("/admin/produk") },
+          { name: "Tampilan Cabang", icon: Building2, href: "/admin/cabang", active: isActive("/admin/cabang") },
         ],
       },
     ];
-  }, [url, isSuperAdmin]);
+  }, [url, isSuperAdmin, pendingDeletionRequests]);
 
   const handleLogout = () => {
     setShowLogoutModal(false);
@@ -154,6 +162,11 @@ export default function SidebarLayout({ children, title = "Dashboard", subtitle 
                       >
                         <Icon className="h-5 w-5 shrink-0" />
                         <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                        {item.badge > 0 && (
+                          <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-white px-1.5 py-0.5 text-[10px] font-extrabold text-[#E56020]">
+                            {item.badge > 99 ? '99+' : item.badge}
+                          </span>
+                        )}
                         {item.active && <ChevronRight className="h-4 w-4 shrink-0" />}
                       </Link>
                     );
@@ -164,23 +177,34 @@ export default function SidebarLayout({ children, title = "Dashboard", subtitle 
           </nav>
 
           <div className="border-t border-white/10 p-3">
+            {isImpersonating && (
+              <button
+                onClick={() => router.post(route('impersonate.stop'))}
+                className="mb-2 flex h-11 w-full items-center gap-3 rounded-lg bg-amber-500/20 px-3 text-sm font-bold text-amber-300 hover:bg-amber-500/30"
+              >
+                <ArrowLeftCircle className="h-5 w-5 shrink-0" />
+                Kembali ke Superadmin
+              </button>
+            )}
             <Link href="/profile" className="flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold text-slate-300 hover:bg-white/10 hover:text-white">
               <Settings className="h-5 w-5" />
               Pengaturan Akun
             </Link>
-            <button
-              onClick={() => setShowLogoutModal(true)}
-              className="mt-1 flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold text-red-300 hover:bg-red-500/10 hover:text-red-200"
-            >
-              <LogOut className="h-5 w-5" />
-              Keluar
-            </button>
+            {!isImpersonating && (
+              <button
+                onClick={() => setShowLogoutModal(true)}
+                className="mt-1 flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold text-red-300 hover:bg-red-500/10 hover:text-red-200"
+              >
+                <LogOut className="h-5 w-5" />
+                Keluar
+              </button>
+            )}
           </div>
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 lg:px-6">
+        <header className="sticky top-0 z-30 flex h-[72px] shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 lg:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <button onClick={() => setIsSidebarOpen(true)} className="rounded-lg border border-slate-200 p-2 text-slate-700 hover:bg-slate-50 lg:hidden">
               <Menu size={22} />
@@ -204,6 +228,14 @@ export default function SidebarLayout({ children, title = "Dashboard", subtitle 
           </div>
 
           <div className="flex items-center gap-2">
+            <Link href="/notifications" className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50" aria-label="Notifikasi">
+              <Bell className="h-5 w-5" />
+              {unreadNotifications > 0 && (
+                <span className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1 py-0.5 text-[10px] font-extrabold text-white">
+                  {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                </span>
+              )}
+            </Link>
             <div className="hidden items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 sm:flex">
               <Activity className="h-4 w-4" />
               Online
@@ -215,6 +247,20 @@ export default function SidebarLayout({ children, title = "Dashboard", subtitle 
         </header>
 
         <main className="min-h-0 flex-1 overflow-auto">
+          {isImpersonating && (
+            <div className="flex items-center justify-between gap-4 bg-amber-400 px-4 py-2.5 text-sm font-bold text-amber-900">
+              <div className="flex items-center gap-2">
+                <ArrowLeftCircle className="h-5 w-5 shrink-0" />
+                <span>Mode Superadmin: Anda sedang masuk sebagai <strong>{user?.name}</strong>. Semua aksi dilakukan atas nama akun cabang ini.</span>
+              </div>
+              <button
+                onClick={() => router.post(route('impersonate.stop'))}
+                className="shrink-0 rounded-lg bg-amber-900/20 px-3 py-1.5 text-xs font-extrabold text-amber-900 hover:bg-amber-900/30"
+              >
+                Kembali ke Superadmin
+              </button>
+            </div>
+          )}
           <div className="ok-page-transition mx-auto w-full max-w-[1480px] px-4 py-5 sm:px-6 lg:px-8">{children}</div>
         </main>
       </div>

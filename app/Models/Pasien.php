@@ -11,12 +11,13 @@ class Pasien extends Model
     protected $table = 'pasien';
 
     protected $fillable = [
-        'kode_pasien',      // ⬅️ baru
+        'kode_pasien',
         'nama_pasien',
         'tanggal_buat',
         'alamat_pasien',
         'nohp_pasien',
         'tanggal_lahir',
+        'status',
     ];
 
     protected $casts = [

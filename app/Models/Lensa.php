@@ -1,4 +1,5 @@
 <?php
+// appV1.0 Rev 8 - Restructure: hapus kanan/kiri, ganti dengan satu set parameter lensa (sph/cyl/axis/add/prism/base).
 
 namespace App\Models;
 
@@ -14,9 +15,8 @@ class Lensa extends Model
     protected $fillable = [
         'nama_lensa','jenis_lensa','coating_lensa','indeks_lensa',
         'gambar_lensa','stok_lensa','tanggal_masuk',
-        'sph_kanan','cyl_kanan','axis_kanan','prism_kanan','base_kanan','add_kanan',
-        'sph_kiri','cyl_kiri','axis_kiri','prism_kiri','base_kiri','add_kiri',
-        'admin_id', 'deskripsi'
+        'sph_lensa','cyl_lensa','axis_lensa','add_lensa','prism_lensa','base_lensa',
+        'admin_id','deskripsi',
     ];
 
     protected $casts = [
@@ -28,7 +28,6 @@ class Lensa extends Model
         return $this->belongsTo(User::class, 'admin_id');
     }
 
-    // helper kecil
     public function getImageUrlAttribute(): ?string
     {
         if (!$this->gambar_lensa) return null;

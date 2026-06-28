@@ -1,8 +1,8 @@
-// appV1.0 Rev 3 - Halaman kelola cabang/admin dengan layout superadmin.
+// appV1.0 Rev 6 - Tambah tombol masuk langsung sebagai admin cabang (impersonasi).
 
 import SidebarLayout from '@/Components/SidebarLayout';
 import { Head, Link, router } from '@inertiajs/react';
-import { Building2, Edit, Eye, Mail, MapPin, Plus, ReceiptText, Search, Trash2, Package, Glasses } from 'lucide-react';
+import { ArrowRightCircle, Building2, Edit, Eye, Images, Mail, MapPin, Plus, ReceiptText, Search, Trash2, Package, Glasses } from 'lucide-react';
 import { useState } from 'react';
 
 function Metric({ label, value, icon: Icon }) {
@@ -87,13 +87,28 @@ export default function AdminsIndex({ admins, filters = {} }) {
                                         </p>
                                     </div>
                                 </div>
-                                <div className="flex shrink-0 gap-2">
+                                <div className="flex shrink-0 flex-wrap gap-2">
                                     <Link href={route('super_admin.admins.show', admin.id)} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50" title="Detail">
                                         <Eye className="h-4 w-4" />
                                     </Link>
                                     <Link href={route('super_admin.admins.edit', admin.id)} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-orange-200 text-[#E56020] hover:bg-orange-50" title="Edit">
                                         <Edit className="h-4 w-4" />
                                     </Link>
+                                    <Link href={route('super_admin.admins.gallery', admin.id)} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-sky-200 text-sky-700 hover:bg-sky-50" title="Kelola gambar toko">
+                                        <Images className="h-4 w-4" />
+                                    </Link>
+                                    <button
+                                        onClick={() => {
+                                            if (confirm(`Masuk sebagai "${admin.name}"? Anda bisa kembali kapan saja.`)) {
+                                                router.post(route('super_admin.admins.impersonate', admin.id));
+                                            }
+                                        }}
+                                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
+                                        title="Masuk sebagai admin ini"
+                                    >
+                                        <ArrowRightCircle className="h-4 w-4" />
+                                        Masuk
+                                    </button>
                                     <button
                                         onClick={() => {
                                             if (confirm('Hapus cabang/admin ini?')) {
