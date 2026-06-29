@@ -1,4 +1,4 @@
-// appV1.0 Rev 2 - Global session-expiry overlay: 419 ditangkap dan user diarahkan ke login.
+// appV1.0 Rev 3 - Handle 403 (unauthorized) dan 419 (session expired) secara global.
 
 import './bootstrap';
 import '../css/app.css';
@@ -16,11 +16,15 @@ function SessionExpiredOverlay() {
     useEffect(() => {
         // Inertia v1: event 'invalid' = respons bukan Inertia yang valid (mis. 419 HTML)
         const unsub = router.on('invalid', (event) => {
-            if (event.detail.response.status === 419) {
-                event.preventDefault(); // jangan lempar error browser
-                // Simpan URL saat ini agar bisa balik setelah login
+            const status = event.detail.response?.status;
+            if (status === 419) {
+                event.preventDefault();
                 sessionStorage.setItem('auth_intended', window.location.pathname + window.location.search);
                 setVisible(true);
+            } else if (status === 403) {
+                event.preventDefault();
+                // Navigasi ke dashboard: server yang menentukan halaman yang tepat berdasarkan role
+                window.location.href = '/dashboard';
             }
         });
         return unsub;

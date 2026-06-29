@@ -1,6 +1,6 @@
 <?php
 
-// appV1.0 Rev 6 - Tambah field status pasien (aktif/nonaktif).
+// appV1.0 Rev 7 - Support import Excel multi-sheet (A-Z) dan template Excel.
 
 namespace App\Http\Controllers;
 
@@ -14,10 +14,22 @@ use Inertia\Inertia;
 class PasienController extends Controller
 {
     // GET /pasien
-    public function index()
+    public function index(Request $request)
     {
-        $patients = Pasien::orderByDesc('id')
-            ->paginate(10)
+        $q = trim($request->get('q', ''));
+
+        $patients = Pasien::query()
+            ->when($q !== '', function ($query) use ($q) {
+                $query->where(function ($sub) use ($q) {
+                    $sub->where('nama_pasien',   'like', "%{$q}%")
+                        ->orWhere('kode_pasien',  'like', "%{$q}%")
+                        ->orWhere('nohp_pasien',  'like', "%{$q}%")
+                        ->orWhere('alamat_pasien','like', "%{$q}%");
+                });
+            })
+            ->orderBy('nama_pasien')
+            ->paginate(20)
+            ->withQueryString()
             ->through(fn (Pasien $p) => [
                 'id'             => $p->id,
                 'kode_pasien'    => $p->kode_pasien,
@@ -31,6 +43,7 @@ class PasienController extends Controller
 
         return Inertia::render('Pasien/Index', [
             'patients'     => $patients,
+            'filters'      => ['q' => $q],
             'importErrors' => session('import_errors', []),
         ]);
     }
@@ -223,30 +236,129 @@ class PasienController extends Controller
 
     public function importTemplate()
     {
-        $headers = [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="template_pasien.csv"',
-            'Cache-Control' => 'no-cache, no-store, must-revalidate',
+        // Generate Excel template dengan format yang sama seperti Data pasien new.xlsx
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('A');
+
+        // Header — sesuai format Excel asli
+        $headers = ['No', 'Nama', 'No Bon', 'Tanggal', 'Alamat', 'NO.HP'];
+        foreach ($headers as $col => $header) {
+            $cell = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1) . '1';
+            $sheet->setCellValue($cell, $header);
+            $sheet->getStyle($cell)->getFont()->setBold(true);
+            $sheet->getStyle($cell)->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setARGB('FFFFFF00');
+        }
+
+        // Contoh data
+        $examples = [
+            ['1', 'Aroen',    '',    '14-04-2007', 'Jl. Arengka No. 1', '08123456789'],
+            ['2', 'Budi',   '250',   '01-01-2008', 'Jl. Sudirman No. 5', '0812000001'],
+            ['3', 'Candra',  '',     '15-03-2009', 'Jl. Riau No. 10',   ''],
         ];
 
-        $callback = function () {
-            $handle = fopen('php://output', 'w');
-            fputs($handle, "\xEF\xBB\xBF"); // BOM agar Excel buka UTF-8 dengan benar
-            fputcsv($handle, ['kode_pasien', 'nama_pasien', 'tanggal_lahir', 'alamat_pasien', 'nohp_pasien']);
-            fputcsv($handle, ['P001', 'Contoh Nama Pasien', '1990-01-15', 'Jl. Contoh No.1, Kota', '08123456789']);
-            fclose($handle);
-        };
+        foreach ($examples as $rowIdx => $rowData) {
+            foreach ($rowData as $colIdx => $val) {
+                $cell = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx + 1) . ($rowIdx + 2);
+                $sheet->setCellValue($cell, $val);
+            }
+        }
 
-        return response()->stream($callback, 200, $headers);
+        // Auto width kolom
+        foreach (range(1, 6) as $col) {
+            $sheet->getColumnDimensionByColumn($col)->setAutoSize(true);
+        }
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+
+        $filename = 'template_pasien.xlsx';
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Cache-Control: max-age=0');
+        $writer->save('php://output');
+        exit;
     }
 
     public function import(Request $request)
     {
         $request->validate([
-            'file' => ['required', 'file', 'mimes:csv,txt', 'max:5120'],
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv,txt', 'max:20480'],
         ]);
 
+        $ext  = strtolower($request->file('file')->getClientOriginalExtension());
         $path = $request->file('file')->getRealPath();
+
+        if (in_array($ext, ['xlsx', 'xls'])) {
+            return $this->importFromExcel($path);
+        }
+
+        return $this->importFromCsv($path);
+    }
+
+    private function importFromExcel(string $path): \Illuminate\Http\RedirectResponse
+    {
+        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($path);
+        $sheetNames  = $spreadsheet->getSheetNames();
+
+        $imported  = 0;
+        $skipped   = 0;
+        $rowErrors = [];
+
+        foreach ($sheetNames as $sheetName) {
+            $sheet    = $spreadsheet->getSheetByName($sheetName);
+            $dataRows = array_slice($sheet->toArray(null, true, true, false), 1);
+
+            foreach ($dataRows as $idx => $row) {
+                $actualRow = $idx + 2;
+                $cols      = array_values(array_slice($row, 0, 6));
+
+                $nama    = $this->trimVal($cols[1] ?? null);
+                $noBon   = $this->trimVal($cols[2] ?? null);
+                $tanggal = $this->trimVal($cols[3] ?? null);
+                $alamat  = $this->trimVal($cols[4] ?? null);
+                $nohp    = $this->trimVal($cols[5] ?? null);
+
+                if (!$nama) continue;
+
+                $kode = ($noBon !== null && $noBon !== '') ? $noBon : null;
+
+                if ($kode !== null && Pasien::where('kode_pasien', $kode)->exists()) {
+                    $rowErrors[] = "Sheet {$sheetName} Baris {$actualRow}: No Bon '{$kode}' sudah terdaftar, dilewati.";
+                    $skipped++;
+                    continue;
+                }
+
+                $nohpClean = null;
+                if ($nohp) {
+                    $digits    = preg_replace('/\D/', '', $nohp);
+                    $nohpClean = strlen($digits) >= 5 ? $digits : null;
+                }
+
+                $pasien = Pasien::create([
+                    'kode_pasien'   => $kode,
+                    'nama_pasien'   => $nama,
+                    'tanggal_buat'  => $this->parseFlexDate($tanggal),
+                    'alamat_pasien' => $alamat,
+                    'nohp_pasien'   => $nohpClean,
+                    'tanggal_lahir' => null,
+                    'status'        => 'aktif',
+                ]);
+                $this->log('import', $pasien, ['imported_via' => 'excel', 'sheet' => $sheetName]);
+                $imported++;
+            }
+        }
+
+        $msg = "{$imported} pasien berhasil diimpor dari Excel.";
+        if ($skipped > 0) $msg .= " {$skipped} baris dilewati.";
+
+        session()->flash('import_errors', $rowErrors);
+        return redirect()->route('pasien.index')->with('success', $msg);
+    }
+
+    private function importFromCsv(string $path): \Illuminate\Http\RedirectResponse
+    {
         $handle = fopen($path, 'r');
 
         // Lewati BOM jika ada
@@ -255,50 +367,51 @@ class PasienController extends Controller
             rewind($handle);
         }
 
-        // Lewati baris header
-        fgetcsv($handle);
+        fgetcsv($handle); // skip header
 
-        $imported = 0;
-        $skipped = 0;
+        $imported  = 0;
+        $skipped   = 0;
         $rowErrors = [];
-        $rowNum = 1;
+        $rowNum    = 1;
 
         while (($cols = fgetcsv($handle)) !== false) {
             $rowNum++;
             if (count($cols) < 2) continue;
 
-            [$kode, $nama, $tglLahir, $alamat, $nohp] = array_pad($cols, 5, null);
-            $kode = trim($kode ?? '');
-            $nama = trim($nama ?? '');
+            // Kolom CSV: nama_pasien, No Bon (kode), Tanggal, Alamat, NO.HP
+            // (mengikuti format template baru: No, Nama, No Bon, Tanggal, Alamat, NO.HP)
+            $nama    = $this->trimVal($cols[1] ?? null);
+            $kode    = $this->trimVal($cols[2] ?? null);
+            $tanggal = $this->trimVal($cols[3] ?? null);
+            $alamat  = $this->trimVal($cols[4] ?? null);
+            $nohp    = $this->trimVal($cols[5] ?? null);
 
-            if ($kode === '' || $nama === '') {
-                $rowErrors[] = "Baris {$rowNum}: kode_pasien dan nama_pasien wajib diisi.";
+            if (!$nama) {
+                $rowErrors[] = "Baris {$rowNum}: nama wajib diisi, dilewati.";
                 $skipped++;
                 continue;
             }
 
-            if (Pasien::where('kode_pasien', $kode)->exists()) {
-                $rowErrors[] = "Baris {$rowNum}: kode '{$kode}' sudah terdaftar, dilewati.";
+            if ($kode !== null && $kode !== '' && Pasien::where('kode_pasien', $kode)->exists()) {
+                $rowErrors[] = "Baris {$rowNum}: No Bon '{$kode}' sudah terdaftar, dilewati.";
                 $skipped++;
                 continue;
             }
 
-            $parsedDate = null;
-            if (!empty(trim($tglLahir ?? ''))) {
-                try {
-                    $parsedDate = \Carbon\Carbon::parse(trim($tglLahir))->toDateString();
-                } catch (\Exception $e) {
-                    $parsedDate = null;
-                }
+            $nohpClean = null;
+            if ($nohp) {
+                $digits    = preg_replace('/\D/', '', $nohp);
+                $nohpClean = strlen($digits) >= 5 ? $digits : null;
             }
 
             $pasien = Pasien::create([
-                'kode_pasien'   => $kode,
+                'kode_pasien'   => ($kode !== '' ? $kode : null),
                 'nama_pasien'   => $nama,
-                'tanggal_lahir' => $parsedDate,
-                'alamat_pasien' => trim($alamat ?? ''),
-                'nohp_pasien'   => preg_replace('/\D/', '', trim($nohp ?? '')),
-                'tanggal_buat'  => now()->toDateString(),
+                'tanggal_buat'  => $this->parseFlexDate($tanggal),
+                'alamat_pasien' => $alamat,
+                'nohp_pasien'   => $nohpClean,
+                'tanggal_lahir' => null,
+                'status'        => 'aktif',
             ]);
             $this->log('import', $pasien, ['imported_via' => 'csv']);
             $imported++;
@@ -306,13 +419,43 @@ class PasienController extends Controller
 
         fclose($handle);
 
-        $msg = "{$imported} pasien berhasil diimpor.";
-        if ($skipped > 0) {
-            $msg .= " {$skipped} baris dilewati.";
-        }
+        $msg = "{$imported} pasien berhasil diimpor dari CSV.";
+        if ($skipped > 0) $msg .= " {$skipped} baris dilewati.";
 
         session()->flash('import_errors', $rowErrors);
         return redirect()->route('pasien.index')->with('success', $msg);
+    }
+
+    private function trimVal(mixed $val): ?string
+    {
+        if ($val === null) return null;
+        $str = trim((string) $val);
+        return $str === '' ? null : $str;
+    }
+
+    private function parseFlexDate(?string $raw): ?string
+    {
+        if (!$raw) return null;
+
+        $normalized = preg_replace('/[^0-9]+/', ' ', $raw);
+        $parts      = array_values(array_filter(explode(' ', trim($normalized)), fn($p) => $p !== ''));
+
+        if (count($parts) < 3) return null;
+
+        $day   = (int) $parts[0];
+        $month = (int) $parts[1];
+        $year  = (int) $parts[2];
+
+        if ($month > 12 && $day <= 12) [$day, $month] = [$month, $day];
+        if ($year < 100) $year += 2000;
+        if ($day < 1 || $day > 31 || $month < 1 || $month > 12) return null;
+        if ($year < 1900 || $year > 2099) return null;
+
+        try {
+            return \Carbon\Carbon::createFromDate($year, $month, $day)->toDateString();
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 
     private function patientSnapshot(Pasien $pasien): array

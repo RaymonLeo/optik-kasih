@@ -1,6 +1,6 @@
 <?php
 
-// appV1.0 Rev 5 - Bagikan flag is_impersonating untuk banner impersonasi di sidebar.
+// appV1.0 Rev 6 - Wrap DB queries in try-catch agar error DB tidak crash seluruh halaman.
 
 namespace App\Http\Middleware;
 
@@ -39,15 +39,27 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user(),
             ],
             'notifications' => fn () => $request->user() ? [
-                'unread_count' => SystemNotification::query()
-                    ->where('recipient_id', $request->user()->id)
-                    ->whereNull('read_at')
-                    ->count(),
+                'unread_count' => (function () use ($request) {
+                    try {
+                        return SystemNotification::query()
+                            ->where('recipient_id', $request->user()->id)
+                            ->whereNull('read_at')
+                            ->count();
+                    } catch (\Throwable $e) {
+                        return 0;
+                    }
+                })(),
             ] : ['unread_count' => 0],
             'approvals' => fn () => $request->user()?->role === 'super_admin' ? [
-                'pending_deletion_count' => DeletionRequest::query()
-                    ->where('status', DeletionRequest::PENDING)
-                    ->count(),
+                'pending_deletion_count' => (function () {
+                    try {
+                        return DeletionRequest::query()
+                            ->where('status', DeletionRequest::PENDING)
+                            ->count();
+                    } catch (\Throwable $e) {
+                        return 0;
+                    }
+                })(),
             ] : ['pending_deletion_count' => 0],
             'is_impersonating' => fn () => session()->has('impersonating_by'),
         ];
