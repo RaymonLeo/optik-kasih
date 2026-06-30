@@ -17,6 +17,7 @@ class Lensa extends Model
         'gambar_lensa','stok_lensa','tanggal_masuk',
         'sph_lensa','cyl_lensa','axis_lensa','add_lensa','prism_lensa','base_lensa',
         'admin_id','deskripsi',
+        'is_pesanan','nama_pesanan',
     ];
 
     protected $casts = [

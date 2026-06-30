@@ -1,4 +1,4 @@
-// appV1.0 Rev 8 - Kategori & brand: combobox dinamis + semua lowercase; thumbnail toggle per foto galeri.
+// appV1.0 Rev 10 - Hybrid kategori: defaults always present + admin can add custom via FilterCombobox.
 
 import { useMemo, useRef, useState } from 'react';
 import SidebarLayout from '@/Components/SidebarLayout';
@@ -6,6 +6,8 @@ import { Link, router, useForm } from '@inertiajs/react';
 import { ChevronDown, Star, Trash2, X } from 'lucide-react';
 
 const today = () => new Date().toISOString().split('T')[0];
+
+const DEFAULT_CATEGORIES = ['kacamata', 'soflen', 'air soflen', 'produk lainnya'];
 
 function Field({ label, error, children }) {
     return (
@@ -116,7 +118,8 @@ export default function ProdukCreate({
 }) {
     const isEdit = Boolean(produk?.id);
 
-    const { data, setData, post, put, processing, errors } = useForm({
+    const { data, setData, post, processing, errors } = useForm({
+        ...(isEdit ? { _method: 'put' } : {}),  // method-spoof so PHP fills $_FILES on edit
         admin_id:               produk?.admin_id || selectedAdminId || '',
         nama_produk:            produk?.nama_produk || '',
         kategori_produk:        produk?.kategori_produk || '',
@@ -126,18 +129,20 @@ export default function ProdukCreate({
         tanggal_masuk:          produk?.tanggal_masuk || today(),
         expired_produk:         produk?.expired_produk || '',
         deskripsi_produk:       produk?.deskripsi_produk || '',
+        lebar_lensa:            produk?.lebar_lensa || '',
+        gagang_hidung:          produk?.gagang_hidung || '',
+        panjang_gagang:         produk?.panjang_gagang || '',
         gambar_produk:          null,
         gambar_produk_tambahan: [],
     });
 
     const submit = (event) => {
         event.preventDefault();
-        const options = { forceFormData: true, preserveScroll: true };
-        if (isEdit) {
-            put(route(`${routeBase}.update`, produk.id), options);
-        } else {
-            post(route(`${routeBase}.store`), options);
-        }
+        // Always post(): _method:'put' in form data routes to update(); real POST fills $_FILES.
+        const url = isEdit
+            ? route(`${routeBase}.update`, produk.id)
+            : route(`${routeBase}.store`);
+        post(url, { forceFormData: true, preserveScroll: true });
     };
 
     const removeAdditionalImage = (image) => {
@@ -149,9 +154,12 @@ export default function ProdukCreate({
         router.post(route(`${routeBase}.images.thumbnail`, [produk.id, image.id]), {}, { preserveScroll: true });
     };
 
-    // Opsi sudah lowercase dari backend; normalkan sekali lagi untuk keamanan
-    const categoryOptions = existingCategories.map((c) => (c || '').toLowerCase()).filter(Boolean);
-    const brandOptions    = existingBrands.map((b) => (b || '').toLowerCase()).filter(Boolean);
+    const brandOptions = existingBrands.map((b) => (b || '').toLowerCase()).filter(Boolean);
+
+    const categoryOptions = useMemo(() => {
+        const fromDb = existingCategories.map((c) => (c || '').toLowerCase()).filter(Boolean);
+        return [...new Set([...DEFAULT_CATEGORIES, ...fromDb])].sort();
+    }, [existingCategories]);
 
     return (
         <SidebarLayout title={isEdit ? 'Edit Produk' : 'Tambah Produk'}>
@@ -199,11 +207,11 @@ export default function ProdukCreate({
                             value={data.kategori_produk}
                             onChange={(v) => setData('kategori_produk', v)}
                             options={categoryOptions}
-                            placeholder="kacamata, soflen, aksesoris..."
+                            placeholder="kacamata, soflen, produk lainnya..."
                             className="w-full"
                         />
                         <p className="mt-1 text-xs text-slate-500">
-                            Pilih dari riwayat atau ketik baru — tersimpan otomatis huruf kecil.
+                            Pilih dari daftar atau ketik kategori baru — tersimpan otomatis.
                         </p>
                     </Field>
 
@@ -273,13 +281,92 @@ export default function ProdukCreate({
                         </Field>
                     </div>
 
+                    {/* Frame size — hanya muncul untuk kacamata */}
+                    {data.kategori_produk === 'kacamata' && (
+                        <div className="md:col-span-2">
+                            <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
+                                <p className="mb-1 text-sm font-semibold text-orange-800">Ukuran Frame Kacamata</p>
+                                <p className="mb-3 text-xs text-orange-600">Ukuran dalam satuan milimeter (mm)</p>
+
+                                {/* Diagram: 52 □ 20 — 138 */}
+                                <div className="mb-4 flex items-center justify-center gap-1 font-mono text-sm select-none">
+                                    {/* Lebar lensa (kotak kiri) */}
+                                    <div className="flex flex-col items-center">
+                                        <div className="flex h-10 w-16 items-center justify-center rounded border-2 border-orange-400 bg-white font-bold text-orange-700">
+                                            {data.lebar_lensa || '—'}
+                                        </div>
+                                        <span className="mt-0.5 text-[10px] text-orange-500">Lebar</span>
+                                    </div>
+                                    {/* Bridge symbol □ */}
+                                    <div className="flex flex-col items-center">
+                                        <div className="flex h-10 w-10 items-center justify-center rounded border-2 border-gray-400 bg-white font-bold text-gray-600">
+                                            {data.gagang_hidung || '—'}
+                                        </div>
+                                        <span className="mt-0.5 text-[10px] text-gray-500">Hidung</span>
+                                    </div>
+                                    {/* Temple dash — */}
+                                    <span className="text-gray-400">—</span>
+                                    {/* Panjang gagang */}
+                                    <div className="flex flex-col items-center">
+                                        <div className="flex h-10 w-16 items-center justify-center rounded border-2 border-gray-500 bg-white font-bold text-gray-700">
+                                            {data.panjang_gagang || '—'}
+                                        </div>
+                                        <span className="mt-0.5 text-[10px] text-gray-500">Gagang</span>
+                                    </div>
+                                </div>
+
+                                <div className="grid gap-3 sm:grid-cols-3">
+                                    <Field label="🔲 Lebar Lensa (mm)" error={errors.lebar_lensa}>
+                                        <div className="relative">
+                                            <input
+                                                type="number" min="0" max="999"
+                                                value={data.lebar_lensa}
+                                                onChange={(e) => setData('lebar_lensa', e.target.value ? parseInt(e.target.value) : '')}
+                                                placeholder="mis. 52"
+                                                className="h-11 w-full rounded-lg border-gray-300 pr-10"
+                                            />
+                                            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">mm</span>
+                                        </div>
+                                    </Field>
+                                    <Field label="🌉 Gagang Hidung (mm)" error={errors.gagang_hidung}>
+                                        <div className="relative">
+                                            <input
+                                                type="number" min="0" max="999"
+                                                value={data.gagang_hidung}
+                                                onChange={(e) => setData('gagang_hidung', e.target.value ? parseInt(e.target.value) : '')}
+                                                placeholder="mis. 20"
+                                                className="h-11 w-full rounded-lg border-gray-300 pr-10"
+                                            />
+                                            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">mm</span>
+                                        </div>
+                                    </Field>
+                                    <Field label="📏 Panjang Gagang (mm)" error={errors.panjang_gagang}>
+                                        <div className="relative">
+                                            <input
+                                                type="number" min="0" max="999"
+                                                value={data.panjang_gagang}
+                                                onChange={(e) => setData('panjang_gagang', e.target.value ? parseInt(e.target.value) : '')}
+                                                placeholder="mis. 138"
+                                                className="h-11 w-full rounded-lg border-gray-300 pr-10"
+                                            />
+                                            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">mm</span>
+                                        </div>
+                                    </Field>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <Field label="Gambar Utama Produk" error={errors.gambar_produk}>
                         <input
                             type="file"
-                            accept="image/jpeg,image/png,image/webp"
+                            accept=".jpg,.jpeg,.png,.gif,.webp,.bmp,.avif,image/*"
                             onChange={(e) => setData('gambar_produk', e.target.files?.[0] || null)}
                             className="block w-full text-sm"
                         />
+                        <p className="mt-1 text-xs text-gray-400">
+                            Format: JPG, PNG, GIF, WebP, BMP, AVIF · Maks 10 MB
+                        </p>
                         {isEdit && produk.gambar_produk && (
                             <img
                                 src={`/storage/${produk.gambar_produk}`}
@@ -293,12 +380,12 @@ export default function ProdukCreate({
                         <input
                             type="file"
                             multiple
-                            accept="image/jpeg,image/png,image/webp"
+                            accept=".jpg,.jpeg,.png,.gif,.webp,.bmp,.avif,image/*"
                             onChange={(e) => setData('gambar_produk_tambahan', Array.from(e.target.files || []))}
                             className="block w-full text-sm"
                         />
-                        <p className="mt-1 text-xs text-gray-500">
-                            Foto ini tampil sebagai galeri pada detail produk. Tentukan thumbnail di bawah.
+                        <p className="mt-1 text-xs text-gray-400">
+                            Format: JPG, PNG, GIF, WebP, BMP, AVIF · Maks 10 MB per foto. Foto tampil sebagai galeri pada detail produk.
                         </p>
                     </Field>
                 </div>

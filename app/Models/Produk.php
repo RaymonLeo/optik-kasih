@@ -23,6 +23,9 @@ class Produk extends Model
         'tanggal_masuk',
         'expired_produk',
         'admin_id',
+        'lebar_lensa',
+        'gagang_hidung',
+        'panjang_gagang',
     ];
 
     public function admin()

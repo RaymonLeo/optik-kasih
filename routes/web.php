@@ -73,6 +73,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('produk/{produk}/images/{productImage}', [ProdukController::class, 'destroyImage'])->name('produk.images.destroy');
         Route::post('produk/{produk}/images/{productImage}/thumbnail', [ProdukController::class, 'setThumbnail'])->name('produk.images.thumbnail');
         Route::resource('lensa', LensaController::class);
+        // transaksi: static routes must come before resource so they aren't swallowed by {transaksi}
+        Route::get('transaksi/export', [TransaksiController::class, 'exportExcel'])->name('transaksi.export');
+        Route::patch('transaksi/{transaksi}/status', [TransaksiController::class, 'updateStatus'])->name('transaksi.update_status');
+        Route::get('transaksi/{transaksi}/print-bon', [TransaksiController::class, 'printBon'])->name('transaksi.print_bon');
         Route::resource('transaksi', TransaksiController::class);
         Route::get('/cabang', [BranchGalleryController::class, 'own'])->name('branch.gallery');
         Route::post('/cabang/photos', [BranchGalleryController::class, 'storeOwn'])->name('branch.photos.store');

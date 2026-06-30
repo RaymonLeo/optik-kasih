@@ -18,8 +18,9 @@ class LensaController extends Controller
         $q = Lensa::query()->where('admin_id', $adminId);
 
         $search  = trim($r->get('search', ''));
-        $jenis   = trim($r->get('jenis', ''));
-        $coating = trim($r->get('coating', ''));
+        $jenis   = array_values(array_filter((array) $r->get('jenis',   [])));
+        $coating = array_values(array_filter((array) $r->get('coating', [])));
+        $indeks  = array_values(array_filter((array) $r->get('indeks',  [])));
 
         if ($search !== '') {
             $q->where(function ($x) use ($search) {
@@ -30,28 +31,33 @@ class LensaController extends Controller
             });
         }
 
-        if ($jenis   !== '') $q->where('jenis_lensa', $jenis);
-        if ($coating !== '') $q->where('coating_lensa', $coating);
+        if (!empty($jenis))   $q->whereIn('jenis_lensa',   $jenis);
+        if (!empty($coating)) $q->whereIn('coating_lensa', $coating);
+        if (!empty($indeks))  $q->whereIn('indeks_lensa',  $indeks);
 
-        $rows = $q->orderBy('nama_lensa')
+        // "Lensa pesan" always float to top so admin can see incoming stock
+        $rows = $q->orderByRaw('is_pesanan DESC')->orderBy('nama_lensa')
                   ->paginate(12)->withQueryString()
                   ->through(fn (Lensa $l) => $this->lensaCard($l));
 
         $baseQ = Lensa::query()->where('admin_id', $adminId);
         $filterOptions = [
-            'jenis'   => (clone $baseQ)->whereNotNull('jenis_lensa')->distinct()->orderBy('jenis_lensa')->pluck('jenis_lensa'),
-            'coating' => (clone $baseQ)->whereNotNull('coating_lensa')->distinct()->orderBy('coating_lensa')->pluck('coating_lensa'),
+            'jenis'   => (clone $baseQ)->whereNotNull('jenis_lensa')->where('jenis_lensa', '<>', '')->distinct()->orderBy('jenis_lensa')->pluck('jenis_lensa'),
+            'coating' => (clone $baseQ)->whereNotNull('coating_lensa')->where('coating_lensa', '<>', '')->distinct()->orderBy('coating_lensa')->pluck('coating_lensa'),
+            'indeks'  => (clone $baseQ)->whereNotNull('indeks_lensa')->where('indeks_lensa', '<>', '')->distinct()->orderBy('indeks_lensa')->pluck('indeks_lensa'),
         ];
 
+        // Low stock alert: stok ≤ 5 (termasuk 0 / habis)
         $stockAlerts = Lensa::query()
             ->where('admin_id', $adminId)
-            ->where('stok_lensa', 0)
-            ->get(['id_lensa', 'nama_lensa', 'jenis_lensa', 'coating_lensa']);
+            ->where('stok_lensa', '<=', 5)
+            ->where('is_pesanan', false)
+            ->get(['id_lensa', 'nama_lensa', 'jenis_lensa', 'coating_lensa', 'stok_lensa']);
 
         return Inertia::render('Lensa/Index', [
             'rows'          => $rows,
             'filterOptions' => $filterOptions,
-            'query'         => compact('search', 'jenis', 'coating'),
+            'query'         => ['search' => $search, 'jenis' => $jenis, 'coating' => $coating, 'indeks' => $indeks],
             'stockAlerts'   => $stockAlerts,
         ]);
     }
@@ -102,8 +108,17 @@ class LensaController extends Controller
     {
         $data = $this->validated($r);
 
+        \Log::info('LensaStore', [
+            'hasFile'     => $r->hasFile('gambar_lensa'),
+            'allFiles'    => array_keys($r->allFiles()),
+            'rawFiles'    => array_map(fn($f) => ['name'=>$f['name'],'size'=>$f['size'],'error'=>$f['error']], $_FILES ?? []),
+            'contentType' => $r->header('Content-Type'),
+        ]);
+
         if ($r->hasFile('gambar_lensa')) {
             $data['gambar_lensa'] = $r->file('gambar_lensa')->store('lensa', 'public');
+        } else {
+            unset($data['gambar_lensa']);
         }
 
         $data['admin_id'] = auth()->id();
@@ -120,6 +135,8 @@ class LensaController extends Controller
 
         if ($r->hasFile('gambar_lensa')) {
             $data['gambar_lensa'] = $r->file('gambar_lensa')->store('lensa', 'public');
+        } else {
+            unset($data['gambar_lensa']);
         }
 
         $lensa = Lensa::create($data);
@@ -155,9 +172,20 @@ class LensaController extends Controller
 
         $data = $this->validated($r);
 
+        \Log::info('LensaUpdate', [
+            'id'          => $lensa->id_lensa,
+            'hasFile'     => $r->hasFile('gambar_lensa'),
+            'allFiles'    => array_keys($r->allFiles()),
+            'rawFiles'    => array_map(fn($f) => ['name'=>$f['name'],'size'=>$f['size'],'error'=>$f['error']], $_FILES ?? []),
+            'contentType' => $r->header('Content-Type'),
+        ]);
+
         if ($r->hasFile('gambar_lensa')) {
             if ($lensa->gambar_lensa) Storage::disk('public')->delete($lensa->gambar_lensa);
             $data['gambar_lensa'] = $r->file('gambar_lensa')->store('lensa', 'public');
+        } else {
+            // Don't overwrite existing image when no new file uploaded
+            unset($data['gambar_lensa']);
         }
 
         $lensa->update($data);
@@ -173,6 +201,8 @@ class LensaController extends Controller
         if ($r->hasFile('gambar_lensa')) {
             if ($lensa->gambar_lensa) Storage::disk('public')->delete($lensa->gambar_lensa);
             $data['gambar_lensa'] = $r->file('gambar_lensa')->store('lensa', 'public');
+        } else {
+            unset($data['gambar_lensa']);
         }
 
         $lensa->update($data);
@@ -229,6 +259,7 @@ class LensaController extends Controller
                 'id_lensa','admin_id','nama_lensa','jenis_lensa','coating_lensa','indeks_lensa',
                 'stok_lensa','gambar_lensa','deskripsi','tanggal_masuk',
                 'sph_lensa','cyl_lensa','axis_lensa','add_lensa','prism_lensa','base_lensa',
+                'is_pesanan','nama_pesanan',
             ]),
             ['gambar_url' => $lensa->image_url]
         );
@@ -246,6 +277,8 @@ class LensaController extends Controller
             'deskripsi'     => $l->deskripsi,
             'tanggal_masuk' => optional($l->tanggal_masuk)->toDateString(),
             'gambar_url'    => $l->image_url,
+            'is_pesanan'    => (bool) $l->is_pesanan,
+            'nama_pesanan'  => $l->nama_pesanan,
             'spec' => [
                 'SPH'   => $l->sph_lensa,
                 'CYL'   => $l->cyl_lensa,
@@ -267,13 +300,15 @@ class LensaController extends Controller
             'stok_lensa'    => ['nullable', 'integer', 'min:0'],
             'deskripsi'     => ['nullable', 'string'],
             'tanggal_masuk' => ['nullable', 'date'],
-            'gambar_lensa'  => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'gambar_lensa'  => ['nullable', 'file', 'mimes:jpg,jpeg,png,gif,webp,bmp,avif', 'max:10240'],
             'sph_lensa'     => ['nullable', 'string', 'max:20'],
             'cyl_lensa'     => ['nullable', 'string', 'max:20'],
             'axis_lensa'    => ['nullable', 'string', 'max:20'],
             'add_lensa'     => ['nullable', 'string', 'max:20'],
             'prism_lensa'   => ['nullable', 'string', 'max:20'],
             'base_lensa'    => ['nullable', 'string', 'max:20'],
+            'is_pesanan'    => ['nullable', 'boolean'],
+            'nama_pesanan'  => ['nullable', 'string', 'max:255'],
         ];
 
         if ($withAdmin) {

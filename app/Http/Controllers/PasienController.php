@@ -1,6 +1,6 @@
 <?php
 
-// appV1.0 Rev 7 - Support import Excel multi-sheet (A-Z) dan template Excel.
+// appV1.0 Rev 9 - Auto-format: kode 7-digit, nama/alamat title case, nohp min 8 digit.
 
 namespace App\Http\Controllers;
 
@@ -16,7 +16,14 @@ class PasienController extends Controller
     // GET /pasien
     public function index(Request $request)
     {
-        $q = trim($request->get('q', ''));
+        $q      = trim($request->get('q', ''));
+        $letter = strtoupper(trim($request->get('letter', '')));
+        $sort   = $request->get('sort', 'asc') === 'desc' ? 'desc' : 'asc';
+
+        // Letter filter only applies if no free-text search is active
+        $activeLetter = ($q === '' && $letter !== '' && strlen($letter) === 1 && ctype_alpha($letter))
+            ? $letter
+            : '';
 
         $patients = Pasien::query()
             ->when($q !== '', function ($query) use ($q) {
@@ -27,7 +34,10 @@ class PasienController extends Controller
                         ->orWhere('alamat_pasien','like', "%{$q}%");
                 });
             })
-            ->orderBy('nama_pasien')
+            ->when($activeLetter !== '', function ($query) use ($activeLetter) {
+                $query->where('nama_pasien', 'like', "{$activeLetter}%");
+            })
+            ->orderBy('nama_pasien', $sort)
             ->paginate(20)
             ->withQueryString()
             ->through(fn (Pasien $p) => [
@@ -43,7 +53,7 @@ class PasienController extends Controller
 
         return Inertia::render('Pasien/Index', [
             'patients'     => $patients,
-            'filters'      => ['q' => $q],
+            'filters'      => ['q' => $q, 'letter' => $activeLetter, 'sort' => $sort],
             'importErrors' => session('import_errors', []),
         ]);
     }
@@ -53,15 +63,15 @@ class PasienController extends Controller
         return Inertia::render('Pasien/Create');
     }
 
+    // Input manual: semua field wajib diisi (kecuali tanggal_lahir)
     public function store(Request $request)
     {
         $data = $request->validate([
             'kode_pasien'   => 'required|string|max:20|unique:pasien,kode_pasien',
             'nama_pasien'   => 'required|string|max:255',
-            'tanggal_buat'  => 'nullable|date',
-            'alamat_pasien' => 'nullable|string',
-            // telepon hanya angka 8-15 digit:
-            'nohp_pasien'   => ['nullable', 'regex:/^\d{8,15}$/'],
+            'tanggal_buat'  => 'required|date',
+            'alamat_pasien' => 'required|string',
+            'nohp_pasien'   => ['required', 'regex:/^\d{8,15}$/'],
             'tanggal_lahir' => 'nullable|date',
         ]);
 
@@ -234,15 +244,14 @@ class PasienController extends Controller
         return redirect()->route('pasien.index')->with('success', 'Pasien berhasil dihapus.');
     }
 
+    // Template Excel untuk import — kolom sesuai nama di website
     public function importTemplate()
     {
-        // Generate Excel template dengan format yang sama seperti Data pasien new.xlsx
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('A');
 
-        // Header — sesuai format Excel asli
-        $headers = ['No', 'Nama', 'No Bon', 'Tanggal', 'Alamat', 'NO.HP'];
+        $headers = ['No', 'Nama Pasien', 'Kode Pasien', 'Tanggal Daftar', 'Alamat', 'No. HP'];
         foreach ($headers as $col => $header) {
             $cell = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1) . '1';
             $sheet->setCellValue($cell, $header);
@@ -252,11 +261,11 @@ class PasienController extends Controller
                 ->getStartColor()->setARGB('FFFFFF00');
         }
 
-        // Contoh data
+        // Kode Pasien: isi angka saja (mis. "250"), sistem auto-prefix huruf + pad 7 digit → "B0000250"
         $examples = [
-            ['1', 'Aroen',    '',    '14-04-2007', 'Jl. Arengka No. 1', '08123456789'],
-            ['2', 'Budi',   '250',   '01-01-2008', 'Jl. Sudirman No. 5', '0812000001'],
-            ['3', 'Candra',  '',     '15-03-2009', 'Jl. Riau No. 10',   ''],
+            ['1', 'Aroen',  '',    '14-04-2007', 'Jl. Arengka No. 1',  '08123456789'],
+            ['2', 'Budi',   '250', '01-01-2008', 'Jl. Sudirman No. 5', '08120000001'],
+            ['3', 'Candra', '',    '15-03-2009', 'Jl. Riau No. 10',    ''],
         ];
 
         foreach ($examples as $rowIdx => $rowData) {
@@ -266,7 +275,6 @@ class PasienController extends Controller
             }
         }
 
-        // Auto width kolom
         foreach (range(1, 6) as $col) {
             $sheet->getColumnDimensionByColumn($col)->setAutoSize(true);
         }
@@ -314,26 +322,23 @@ class PasienController extends Controller
                 $actualRow = $idx + 2;
                 $cols      = array_values(array_slice($row, 0, 6));
 
+                // Kolom: No | Nama Pasien | Kode Pasien (atau No Bon) | Tanggal Daftar | Alamat | No. HP
                 $nama    = $this->trimVal($cols[1] ?? null);
-                $noBon   = $this->trimVal($cols[2] ?? null);
+                $kodeRaw = $this->trimVal($cols[2] ?? null);
                 $tanggal = $this->trimVal($cols[3] ?? null);
                 $alamat  = $this->trimVal($cols[4] ?? null);
                 $nohp    = $this->trimVal($cols[5] ?? null);
 
                 if (!$nama) continue;
 
-                $kode = ($noBon !== null && $noBon !== '') ? $noBon : null;
+                $nama   = $this->cleanName($nama);
+                $alamat = $this->cleanName($alamat);
+                $kode   = $this->buildKodePasien($kodeRaw, $nama);
 
                 if ($kode !== null && Pasien::where('kode_pasien', $kode)->exists()) {
-                    $rowErrors[] = "Sheet {$sheetName} Baris {$actualRow}: No Bon '{$kode}' sudah terdaftar, dilewati.";
+                    $rowErrors[] = "Sheet {$sheetName} Baris {$actualRow}: Kode Pasien '{$kode}' sudah terdaftar, dilewati.";
                     $skipped++;
                     continue;
-                }
-
-                $nohpClean = null;
-                if ($nohp) {
-                    $digits    = preg_replace('/\D/', '', $nohp);
-                    $nohpClean = strlen($digits) >= 5 ? $digits : null;
                 }
 
                 $pasien = Pasien::create([
@@ -341,7 +346,7 @@ class PasienController extends Controller
                     'nama_pasien'   => $nama,
                     'tanggal_buat'  => $this->parseFlexDate($tanggal),
                     'alamat_pasien' => $alamat,
-                    'nohp_pasien'   => $nohpClean,
+                    'nohp_pasien'   => $this->cleanNohp($nohp),
                     'tanggal_lahir' => null,
                     'status'        => 'aktif',
                 ]);
@@ -361,7 +366,6 @@ class PasienController extends Controller
     {
         $handle = fopen($path, 'r');
 
-        // Lewati BOM jika ada
         $bom = fread($handle, 3);
         if ($bom !== "\xEF\xBB\xBF") {
             rewind($handle);
@@ -378,10 +382,9 @@ class PasienController extends Controller
             $rowNum++;
             if (count($cols) < 2) continue;
 
-            // Kolom CSV: nama_pasien, No Bon (kode), Tanggal, Alamat, NO.HP
-            // (mengikuti format template baru: No, Nama, No Bon, Tanggal, Alamat, NO.HP)
+            // Kolom CSV: No | Nama Pasien | Kode Pasien | Tanggal Daftar | Alamat | No. HP
             $nama    = $this->trimVal($cols[1] ?? null);
-            $kode    = $this->trimVal($cols[2] ?? null);
+            $kodeRaw = $this->trimVal($cols[2] ?? null);
             $tanggal = $this->trimVal($cols[3] ?? null);
             $alamat  = $this->trimVal($cols[4] ?? null);
             $nohp    = $this->trimVal($cols[5] ?? null);
@@ -392,24 +395,22 @@ class PasienController extends Controller
                 continue;
             }
 
-            if ($kode !== null && $kode !== '' && Pasien::where('kode_pasien', $kode)->exists()) {
-                $rowErrors[] = "Baris {$rowNum}: No Bon '{$kode}' sudah terdaftar, dilewati.";
+            $nama   = $this->cleanName($nama);
+            $alamat = $this->cleanName($alamat);
+            $kode   = $this->buildKodePasien($kodeRaw, $nama);
+
+            if ($kode !== null && Pasien::where('kode_pasien', $kode)->exists()) {
+                $rowErrors[] = "Baris {$rowNum}: Kode Pasien '{$kode}' sudah terdaftar, dilewati.";
                 $skipped++;
                 continue;
             }
 
-            $nohpClean = null;
-            if ($nohp) {
-                $digits    = preg_replace('/\D/', '', $nohp);
-                $nohpClean = strlen($digits) >= 5 ? $digits : null;
-            }
-
             $pasien = Pasien::create([
-                'kode_pasien'   => ($kode !== '' ? $kode : null),
+                'kode_pasien'   => $kode,
                 'nama_pasien'   => $nama,
                 'tanggal_buat'  => $this->parseFlexDate($tanggal),
                 'alamat_pasien' => $alamat,
-                'nohp_pasien'   => $nohpClean,
+                'nohp_pasien'   => $this->cleanNohp($nohp),
                 'tanggal_lahir' => null,
                 'status'        => 'aktif',
             ]);
@@ -424,6 +425,66 @@ class PasienController extends Controller
 
         session()->flash('import_errors', $rowErrors);
         return redirect()->route('pasien.index')->with('success', $msg);
+    }
+
+    /**
+     * Bangun kode_pasien dari kolom "Kode Pasien" / "No Bon":
+     *  - Sudah ada huruf di depan + digit → pad digit ke 7 (mis. "B250" → "B0000250").
+     *  - Hanya digit → prefix huruf pertama nama + pad ke 7 (mis. "250" + Budi → "B0000250").
+     *  - Non-standard (ada tanda baca/tanggal) → prefix huruf + simpan as-is.
+     *  - Kosong → null.
+     */
+    private function buildKodePasien(?string $rawKode, ?string $nama): ?string
+    {
+        if ($rawKode === null || $rawKode === '') return null;
+
+        $prefix = strtoupper(substr(ltrim((string) $nama), 0, 1));
+
+        if (preg_match('/^[A-Za-z]/', $rawKode)) {
+            $letter = strtoupper($rawKode[0]);
+            $rest   = substr($rawKode, 1);
+            // Digit-only suffix → zero-pad ke 7
+            return ctype_digit($rest)
+                ? $letter . str_pad($rest, 7, '0', STR_PAD_LEFT)
+                : $letter . $rest;
+        }
+
+        // Hanya digit → prefix + pad ke 7
+        if (ctype_digit($rawKode)) {
+            return $prefix . str_pad($rawKode, 7, '0', STR_PAD_LEFT);
+        }
+
+        // Non-standard (tanda baca, tanggal, dll) → prefix + raw
+        return $prefix . $rawKode;
+    }
+
+    /**
+     * Title case: Capitalize huruf pertama setiap kata.
+     * Menggunakan titik (.) sebagai pemisah kata tambahan selain spasi,
+     * sehingga "Jl.Arengka" → "Jl.Arengka" dan "H.M." tetap rapi.
+     */
+    private function cleanName(?string $val): ?string
+    {
+        if ($val === null) return null;
+        $str = trim($val);
+        if ($str === '') return null;
+        return ucwords(strtolower($str), " .");
+    }
+
+    /**
+     * Bersihkan nomor HP:
+     *  - Strip semua non-digit.
+     *  - Jika dimulai "62" dan panjang ≥ 11 → ganti "62" dengan "0".
+     *  - Harus 8–15 digit, kalau tidak → null.
+     */
+    private function cleanNohp(?string $val): ?string
+    {
+        if (!$val) return null;
+        $digits = preg_replace('/\D/', '', $val);
+        if (str_starts_with($digits, '62') && strlen($digits) >= 11) {
+            $digits = '0' . substr($digits, 2);
+        }
+        return (strlen($digits) >= 8 && strlen($digits) <= 15) ? $digits : null;
     }
 
     private function trimVal(mixed $val): ?string

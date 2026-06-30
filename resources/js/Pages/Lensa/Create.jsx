@@ -184,7 +184,8 @@ export default function Create({ mode = "create", prefill = null }) {
     ], []);
 
     /* ── Form state ─────────────────────────────────────────────────────── */
-    const { data, setData, post, put, processing, errors } = useForm(prefill ? {
+    const { data, setData, post, processing, errors } = useForm(prefill ? {
+        _method:        'put',                  // method-spoof: POST→PUT so PHP fills $_FILES
         admin_id:       prefill.admin_id      ?? '',
         nama_lensa:     prefill.nama_lensa    || '',
         jenis_lensa:    prefill.jenis_lensa   || '',
@@ -231,9 +232,12 @@ export default function Create({ mode = "create", prefill = null }) {
     }
 
     function submit() {
-        const opts = { forceFormData: true, preserveScroll: true };
-        if (isEdit) put(route(`${routeBase}.update`, prefill.id_lensa), opts);
-        else        post(route(`${routeBase}.store`), opts);
+        // Always use post(): for edit, _method:'put' in form data tells Laravel
+        // to route to update() while keeping the request as POST so PHP fills $_FILES.
+        const url = isEdit
+            ? route(`${routeBase}.update`, prefill.id_lensa)
+            : route(`${routeBase}.store`);
+        post(url, { forceFormData: true, preserveScroll: true });
     }
 
     /* ── Render ─────────────────────────────────────────────────────────── */
@@ -348,7 +352,13 @@ export default function Create({ mode = "create", prefill = null }) {
                         </div>
 
                         <Field label="Gambar Lensa (opsional)" error={errors.gambar_lensa}>
-                            <input type="file" accept="image/*" onChange={handleFile} className="text-sm" />
+                            <input type="file"
+                                accept=".jpg,.jpeg,.png,.gif,.webp,.bmp,.avif,image/*"
+                                onChange={handleFile}
+                                className="text-sm" />
+                            <p className="mt-1 text-xs text-gray-400">
+                                Format: JPG, PNG, GIF, WebP, BMP, AVIF · Maks 10 MB
+                            </p>
                             {preview && (
                                 <div className="mt-2 h-28 w-28 overflow-hidden rounded-lg border bg-gray-50">
                                     <img src={preview} alt="Preview" className="h-full w-full object-cover" />

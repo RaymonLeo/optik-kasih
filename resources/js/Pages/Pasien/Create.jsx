@@ -1,7 +1,7 @@
-// appV1.0 Rev 2 - Tambah kalkulasi umur otomatis dari tanggal lahir, tanggal buat default hari ini.
+// appV1.0 Rev 3 - Semua field wajib diisi (kecuali tanggal lahir), tampilkan error per field dari server.
 
 import React, { useMemo, useState } from 'react';
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import Toast from '@/Components/ui/Toast';
 import SidebarLayout from "@/Components/SidebarLayout";
@@ -18,7 +18,15 @@ function calcAge(tanggalLahir) {
     return age >= 0 ? age : null;
 }
 
+function FieldError({ name, errors }) {
+    if (!errors[name]) return null;
+    return <p className="mt-1 text-xs text-red-600">{errors[name]}</p>;
+}
+
 function Create() {
+    const { props } = usePage();
+    const serverErrors = props.errors || {};
+
     const [f, setF] = useState({
         kode_pasien: '', nama_pasien: '', tanggal_buat: today(),
         alamat_pasien: '', nohp_pasien: '', tanggal_lahir: ''
@@ -31,6 +39,9 @@ function Create() {
 
     const age = useMemo(() => calcAge(f.tanggal_lahir), [f.tanggal_lahir]);
 
+    const inputClass = (field) =>
+        `mt-1 w-full rounded-lg border px-3 py-2 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 ${serverErrors[field] ? 'border-red-400' : ''}`;
+
     const submit = () => {
         router.post(route('pasien.store'), f, {
             onSuccess: () => {
@@ -38,7 +49,10 @@ function Create() {
                 setToast({ open: true, type: 'success', message: 'Data berhasil ditambah!' });
                 setF({ kode_pasien: '', nama_pasien: '', tanggal_buat: today(), alamat_pasien: '', nohp_pasien: '', tanggal_lahir: '' });
             },
-            onError: () => setToast({ open: true, type: 'error', message: 'Periksa input.' }),
+            onError: () => {
+                setConfirm(false);
+                setToast({ open: true, type: 'error', message: 'Periksa input, ada field yang belum diisi.' });
+            },
             preserveScroll: true,
         });
     };
@@ -55,32 +69,41 @@ function Create() {
 
                     <div className="grid gap-4 md:grid-cols-2">
                         <div>
-                            <label className="text-sm font-medium text-gray-700">Kode Pasien</label>
+                            <label className="text-sm font-medium text-gray-700">
+                                Kode Pasien <span className="text-red-500">*</span>
+                            </label>
                             <input
                                 value={f.kode_pasien}
                                 onChange={onChange('kode_pasien')}
-                                placeholder="contoh: A0001"
-                                className="mt-1 w-full rounded-lg border px-3 py-2 focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                                placeholder="contoh: R250"
+                                className={inputClass('kode_pasien')}
                             />
+                            <FieldError name="kode_pasien" errors={serverErrors} />
                         </div>
 
                         <div>
-                            <label className="text-sm font-medium text-gray-700">Nama Pasien</label>
+                            <label className="text-sm font-medium text-gray-700">
+                                Nama Pasien <span className="text-red-500">*</span>
+                            </label>
                             <input
                                 value={f.nama_pasien}
                                 onChange={onChange('nama_pasien')}
-                                className="mt-1 w-full rounded-lg border px-3 py-2 focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                                className={inputClass('nama_pasien')}
                             />
+                            <FieldError name="nama_pasien" errors={serverErrors} />
                         </div>
 
                         <div>
-                            <label className="text-sm font-medium text-gray-700">Tanggal Buat</label>
+                            <label className="text-sm font-medium text-gray-700">
+                                Tanggal Daftar <span className="text-red-500">*</span>
+                            </label>
                             <input
                                 type="date"
                                 value={f.tanggal_buat}
                                 onChange={onChange('tanggal_buat')}
-                                className="mt-1 w-full rounded-lg border px-3 py-2 focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                                className={inputClass('tanggal_buat')}
                             />
+                            <FieldError name="tanggal_buat" errors={serverErrors} />
                         </div>
 
                         <div>
@@ -97,23 +120,28 @@ function Create() {
                                 value={f.tanggal_lahir}
                                 onChange={onChange('tanggal_lahir')}
                                 max={today()}
-                                className="mt-1 w-full rounded-lg border px-3 py-2 focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                                className={inputClass('tanggal_lahir')}
                             />
+                            <FieldError name="tanggal_lahir" errors={serverErrors} />
                         </div>
 
                         <div className="md:col-span-2">
-                            <label className="text-sm font-medium text-gray-700">Alamat</label>
+                            <label className="text-sm font-medium text-gray-700">
+                                Alamat <span className="text-red-500">*</span>
+                            </label>
                             <textarea
                                 value={f.alamat_pasien}
                                 onChange={onChange('alamat_pasien')}
                                 rows={3}
-                                className="mt-1 w-full rounded-lg border px-3 py-2 focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                                className={inputClass('alamat_pasien')}
                             />
+                            <FieldError name="alamat_pasien" errors={serverErrors} />
                         </div>
 
                         <div>
                             <label className="text-sm font-medium text-gray-700">
-                                Nomor Telepon <span className="text-xs text-gray-500">(hanya angka 8–15 digit)</span>
+                                Nomor Telepon <span className="text-red-500">*</span>{' '}
+                                <span className="text-xs text-gray-500">(hanya angka 8–15 digit)</span>
                             </label>
                             <input
                                 type="tel"
@@ -124,8 +152,9 @@ function Create() {
                                 value={f.nohp_pasien}
                                 onChange={onChangePhone}
                                 placeholder="081234567890"
-                                className="mt-1 w-full rounded-lg border px-3 py-2 focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                                className={inputClass('nohp_pasien')}
                             />
+                            <FieldError name="nohp_pasien" errors={serverErrors} />
                         </div>
                     </div>
 

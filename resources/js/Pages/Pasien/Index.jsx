@@ -1,12 +1,14 @@
-// appV1.0 Rev 8 - Server-side search untuk 12.000+ pasien, tampilkan Tanggal Daftar.
+// appV1.0 Rev 10 - Filter abjad A-Z + sort ascending/descending.
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import { router, Head, usePage } from '@inertiajs/react';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import Toast from '@/Components/ui/Toast';
 import PatientHoverCard from '@/Components/patients/PatientHoverCard';
 import Pagination from '@/Components/ui/Pagination';
 import SidebarLayout from "@/Components/SidebarLayout";
+
+const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 function Index() {
   const { props } = usePage();
@@ -16,22 +18,48 @@ function Index() {
   const importErrors = props.importErrors || [];
   const filters      = props.filters || {};
 
-  // Search — server-side dengan debounce
-  const [q, setQ]     = useState(filters.q || '');
-  const debounceRef   = useRef(null);
+  // Filter state — controlled from server filters
+  const [q, setQ]           = useState(filters.q || '');
+  const [letter, setLetter] = useState(filters.letter || '');
+  const [sort, setSort]     = useState(filters.sort || 'asc');
+  const debounceRef         = useRef(null);
+
+  const navigate = useCallback((params) => {
+    router.get(route('pasien.index'), params, { preserveState: true, replace: true });
+  }, []);
 
   const handleSearch = (val) => {
     setQ(val);
+    // Reset letter filter when searching
+    if (val) setLetter('');
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      router.get(route('pasien.index'), { q: val }, { preserveState: true, replace: true });
+      navigate({ q: val, letter: '', sort });
     }, 350);
   };
 
-  const [hoverIndex, setHoverIndex]   = useState(null);
-  const [toDelete, setToDelete]       = useState(null);
+  const handleLetter = (l) => {
+    const next = letter === l ? '' : l;
+    setLetter(next);
+    setQ('');
+    navigate({ q: '', letter: next, sort });
+  };
+
+  const handleSort = () => {
+    const next = sort === 'asc' ? 'desc' : 'asc';
+    setSort(next);
+    navigate({ q, letter, sort: next });
+  };
+
+  const resetAll = () => {
+    setQ(''); setLetter(''); setSort('asc');
+    navigate({ q: '', letter: '', sort: 'asc' });
+  };
+
+  const [hoverIndex, setHoverIndex]     = useState(null);
+  const [toDelete, setToDelete]         = useState(null);
   const [deleteReason, setDeleteReason] = useState('');
-  const [toast, setToast]             = useState({ open: false, type: 'success', message: '' });
+  const [toast, setToast]               = useState({ open: false, type: 'success', message: '' });
 
   const [showImport, setShowImport] = useState(false);
   const [importFile, setImportFile] = useState(null);
@@ -68,6 +96,8 @@ function Index() {
       preserveScroll: true,
     });
   };
+
+  const hasFilter = q || letter;
 
   return (
     <>
@@ -107,7 +137,7 @@ function Index() {
               <table className="min-w-full text-xs">
                 <thead className="bg-yellow-100">
                   <tr>
-                    {['No', 'Nama', 'No Bon (kode)', 'Tanggal', 'Alamat', 'NO.HP'].map((h) => (
+                    {['No', 'Nama Pasien', 'Kode Pasien', 'Tanggal Daftar', 'Alamat', 'No. HP'].map((h) => (
                       <th key={h} className="border border-yellow-300 px-3 py-1.5 text-left font-semibold text-gray-700">{h}</th>
                     ))}
                   </tr>
@@ -121,11 +151,19 @@ function Index() {
                     <td className="border border-gray-200 px-3 py-1">Jl. Arengka</td>
                     <td className="border border-gray-200 px-3 py-1 italic text-gray-400">(boleh kosong)</td>
                   </tr>
+                  <tr className="bg-gray-50 text-gray-500">
+                    <td className="border border-gray-200 px-3 py-1">2</td>
+                    <td className="border border-gray-200 px-3 py-1">Budi</td>
+                    <td className="border border-gray-200 px-3 py-1">250</td>
+                    <td className="border border-gray-200 px-3 py-1">01-01-2008</td>
+                    <td className="border border-gray-200 px-3 py-1">Jl. Sudirman No. 5</td>
+                    <td className="border border-gray-200 px-3 py-1">0812000001</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
             <p className="mb-3 text-xs text-orange-600">
-              Excel multi-sheet (A–Z) dibaca otomatis. Baris tanpa Nama dilewati. No Bon boleh kosong.
+              Excel multi-sheet (A–Z) dibaca otomatis. Baris tanpa Nama dilewati. Kode Pasien boleh kosong atau diisi angka saja — huruf depan nama ditambahkan otomatis (mis. "250" → "B250").
             </p>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -154,7 +192,7 @@ function Index() {
           </form>
         )}
 
-        {/* Search */}
+        {/* Search + Sort row */}
         <div className="mb-3 flex items-center gap-2">
           <input
             value={q}
@@ -162,27 +200,66 @@ function Index() {
             placeholder="Cari nama, kode, telepon, alamat…"
             className="flex-1 rounded-xl border border-gray-300 px-4 py-2 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
           />
-          {q && (
+          {/* Sort toggle */}
+          <button
+            onClick={handleSort}
+            title={sort === 'asc' ? 'Urutan: A → Z (klik untuk Z → A)' : 'Urutan: Z → A (klik untuk A → Z)'}
+            className={`flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-semibold transition
+              ${sort === 'desc'
+                ? 'border-orange-400 bg-orange-100 text-orange-700'
+                : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+          >
+            {sort === 'asc' ? (
+              <><span>A</span><svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3l4 6H4l4-6z"/></svg><span>Z</span></>
+            ) : (
+              <><span>Z</span><svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 13l4-6H4l4 6z"/></svg><span>A</span></>
+            )}
+          </button>
+          {hasFilter && (
             <button
-              onClick={() => handleSearch('')}
+              onClick={resetAll}
               className="shrink-0 rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-500 hover:bg-gray-50"
             >
               ✕ Reset
             </button>
           )}
         </div>
-        {q && (
+
+        {/* A–Z letter filter */}
+        <div className="mb-3 flex flex-wrap gap-1">
+          {LETTERS.map((l) => (
+            <button
+              key={l}
+              onClick={() => handleLetter(l)}
+              className={`h-8 w-8 rounded-lg text-sm font-bold transition
+                ${letter === l
+                  ? 'bg-orange-600 text-white shadow'
+                  : 'border border-gray-200 bg-white text-gray-600 hover:border-orange-400 hover:text-orange-600'
+                }`}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+
+        {/* Active filter info */}
+        {(q || letter) && (
           <p className="mb-2 text-xs text-gray-500">
-            Menampilkan <b>{total}</b> hasil untuk <b>"{q}"</b>
+            {letter
+              ? <>Menampilkan <b>{total}</b> pasien berawalan <b>"{letter}"</b></>
+              : <>Menampilkan <b>{total}</b> hasil untuk <b>"{q}"</b></>
+            }
+            {' — '}urutan <b>{sort === 'asc' ? 'A → Z' : 'Z → A'}</b>
           </p>
         )}
 
         {/* Tabel */}
-        <div className="rounded-2xl border overflow-visible">
+        <div className="overflow-visible rounded-2xl border">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr className="text-left text-sm font-semibold text-gray-600">
-                <th className="px-4 py-3">No Bon</th>
+                <th className="px-4 py-3">Kode Pasien</th>
                 <th className="px-4 py-3">Nama Pasien</th>
                 <th className="px-4 py-3">Alamat</th>
                 <th className="px-4 py-3">Tgl Daftar</th>
@@ -194,7 +271,7 @@ function Index() {
               {rows.map((row, idx) => (
                 <tr
                   key={row.id}
-                  className="relative hover:bg-orange-50/50 cursor-pointer"
+                  className="relative cursor-pointer hover:bg-orange-50/50"
                   onMouseEnter={() => setHoverIndex(idx)}
                   onMouseLeave={() => setHoverIndex(null)}
                   onClick={() => goShow(row.id)}
@@ -218,7 +295,7 @@ function Index() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-gray-700">{row.alamat_pasien || <span className="text-gray-300">—</span>}</td>
-                  <td className="px-4 py-3 text-gray-500 text-sm">{row.tanggal_buat || <span className="text-gray-300">—</span>}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500">{row.tanggal_buat || <span className="text-gray-300">—</span>}</td>
                   <td className="px-4 py-3 text-gray-700">{row.nohp_pasien || <span className="text-gray-300">—</span>}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>

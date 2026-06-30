@@ -17,8 +17,10 @@ class ProdukController extends Controller
 {
     public function index(Request $request)
     {
-        $search = $request->get('search');
-        $query = Produk::where('admin_id', auth()->id());
+        $adminId = auth()->id();
+        $search  = $request->get('search');
+        $habis   = $request->boolean('habis', false);
+        $query   = Produk::where('admin_id', $adminId);
 
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -27,23 +29,48 @@ class ProdukController extends Controller
             });
         }
 
-        if ($request->filled('category')) {
-            $query->where('kategori_produk', $request->category);
+        $category = array_values(array_filter((array) $request->get('category', [])));
+        if (!empty($category)) {
+            $query->whereIn('kategori_produk', $category);
+        }
+
+        if ($habis) {
+            $query->where('jumlah_produk', 0);
         }
 
         $products = $query->latest()->paginate(10)->withQueryString();
-        $categories = Produk::where('admin_id', auth()->id())
+        $categories = Produk::where('admin_id', $adminId)
             ->select('kategori_produk')
             ->whereNotNull('kategori_produk')
             ->distinct()
             ->orderBy('kategori_produk')
             ->pluck('kategori_produk');
 
+        // Stok rendah: jumlah_produk > 0 dan ≤ 5
+        $lowStockAlerts = Produk::where('admin_id', $adminId)
+            ->where('jumlah_produk', '>', 0)
+            ->where('jumlah_produk', '<=', 5)
+            ->get(['id', 'nama_produk', 'kategori_produk', 'jumlah_produk']);
+
+        // Stok habis: jumlah_produk = 0
+        $outOfStockAlerts = Produk::where('admin_id', $adminId)
+            ->where('jumlah_produk', 0)
+            ->get(['id', 'nama_produk', 'kategori_produk']);
+
+        // Kadaluarsa: expired_produk ≤ 30 hari dari sekarang (termasuk sudah expired)
+        $expiringAlerts = Produk::where('admin_id', $adminId)
+            ->whereNotNull('expired_produk')
+            ->whereDate('expired_produk', '<=', now()->addDays(30)->toDateString())
+            ->get(['id', 'nama_produk', 'kategori_produk', 'expired_produk']);
+
         return Inertia::render('Produk/Index', [
-            'products' => $products,
-            'categories' => $categories,
-            'filters' => $request->only(['search', 'category']),
-            'routeBase' => 'admin.produk',
+            'products'         => $products,
+            'categories'       => $categories,
+            'filters'          => ['search' => $search, 'category' => $category, 'habis' => $request->boolean('habis', false)],
+            'routeBase'        => 'admin.produk',
+            'lowStockAlerts'   => $lowStockAlerts,
+            'outOfStockAlerts' => $outOfStockAlerts,
+            'expiringAlerts'   => $expiringAlerts,
         ]);
     }
 
@@ -265,9 +292,12 @@ class ProdukController extends Controller
             'tanggal_masuk'            => 'nullable|date',
             'expired_produk'           => 'nullable|date',
             'deskripsi_produk'         => 'nullable|string|max:3000',
-            'gambar_produk'            => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
+            'gambar_produk'            => 'nullable|file|mimes:jpg,jpeg,png,gif,webp,bmp,avif|max:10240',
             'gambar_produk_tambahan'   => 'nullable|array|max:7',
-            'gambar_produk_tambahan.*' => 'image|mimes:jpg,jpeg,png,webp|max:4096',
+            'gambar_produk_tambahan.*' => 'file|mimes:jpg,jpeg,png,gif,webp,bmp,avif|max:10240',
+            'lebar_lensa'              => 'nullable|integer|min:0|max:999',
+            'gagang_hidung'            => 'nullable|integer|min:0|max:999',
+            'panjang_gagang'           => 'nullable|integer|min:0|max:999',
         ];
 
         if ($withAdmin) {

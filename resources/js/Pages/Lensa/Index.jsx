@@ -1,16 +1,16 @@
-// appV1.0 Rev 4 - Tambah badge HABIS dan banner sekali-tampil (localStorage) untuk stok lensa habis.
+// appV1.0 Rev 6 - Multi-select checkbox filter (Shopee-style) untuk jenis/coating/indeks.
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import SidebarLayout from "@/Components/SidebarLayout";
-import { ChevronDown, X } from "lucide-react";
+import { Filter, X } from "lucide-react";
 
 const SPEC_FIELDS = ['SPH', 'CYL', 'AXIS', 'ADD', 'PRISM', 'BASE'];
 
 function SpecBadges({ spec }) {
     const filled = SPEC_FIELDS.filter((k) => spec?.[k] != null && spec[k] !== '');
     if (filled.length === 0) {
-        return <span className="text-xs text-gray-400 italic">Tanpa ukuran spesifik</span>;
+        return <span className="text-xs italic text-gray-400">Tanpa ukuran spesifik</span>;
     }
     return (
         <div className="flex flex-wrap gap-1">
@@ -24,90 +24,101 @@ function SpecBadges({ spec }) {
     );
 }
 
-function FilterCombobox({ label, value, onChange, options = [], placeholder = "Semua" }) {
-    const [open, setOpen] = useState(false);
-    const [typed, setTyped] = useState(value || "");
-    const ref = useRef(null);
-
-    const filtered = useMemo(
-        () => options.filter((o) => o.toLowerCase().includes(typed.toLowerCase())),
-        [options, typed]
-    );
-
-    const handleSelect = (opt) => { onChange(opt); setTyped(opt); setOpen(false); };
-    const handleClear  = () => { onChange(""); setTyped(""); setOpen(false); };
-
+/* ── Checkbox group (multi-select) ─────────────────────────────────────── */
+function CheckboxGroup({ title, options = [], selected = [], onToggle, chipClass, checkClass }) {
     return (
-        <div ref={ref} className="relative flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-500">{label}</label>
-            <div className="flex h-10 min-w-[180px] items-center rounded-lg border border-slate-300 bg-white px-3">
-                <input
-                    className="min-w-0 flex-1 border-none bg-transparent text-sm outline-none placeholder:text-slate-400"
-                    placeholder={placeholder}
-                    value={typed}
-                    onChange={(e) => { setTyped(e.target.value); onChange(""); setOpen(true); }}
-                    onFocus={() => setOpen(true)}
-                    onBlur={() => setTimeout(() => setOpen(false), 150)}
-                />
-                {(value || typed) ? (
-                    <button type="button" onClick={handleClear} className="text-slate-400 hover:text-slate-700">
-                        <X className="h-4 w-4" />
-                    </button>
-                ) : (
-                    <button type="button" onClick={() => setOpen((o) => !o)} className="text-slate-400">
-                        <ChevronDown className="h-4 w-4" />
-                    </button>
+        <div className="min-w-[120px]">
+            <div className="mb-2 flex items-center gap-1.5">
+                <span className="text-sm font-bold text-gray-700">{title}</span>
+                {selected.length > 0 && (
+                    <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${chipClass}`}>
+                        {selected.length}
+                    </span>
                 )}
             </div>
-            {open && filtered.length > 0 && (
-                <div className="absolute left-0 top-full z-30 mt-1 max-h-48 min-w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
-                    {filtered.map((opt) => (
-                        <button key={opt} type="button"
-                            className={`w-full px-4 py-2 text-left text-sm hover:bg-orange-50 hover:text-orange-700 ${value === opt ? "bg-orange-50 font-semibold text-orange-700" : "text-slate-700"}`}
-                            onClick={() => handleSelect(opt)}>
-                            {opt}
-                        </button>
-                    ))}
-                </div>
-            )}
+            <div className="space-y-1.5">
+                {options.map((opt) => (
+                    <label key={opt} className="flex cursor-pointer items-center gap-2 text-sm text-gray-700 hover:text-gray-900">
+                        <input
+                            type="checkbox"
+                            className={`h-4 w-4 rounded border-gray-300 ${checkClass}`}
+                            checked={selected.includes(opt)}
+                            onChange={() => onToggle(opt)}
+                        />
+                        <span className={selected.includes(opt) ? "font-semibold" : ""}>{opt}</span>
+                    </label>
+                ))}
+                {options.length === 0 && (
+                    <span className="text-xs italic text-gray-400">Belum ada data</span>
+                )}
+            </div>
         </div>
     );
 }
+
+const toArr = (v) => (Array.isArray(v) ? v : v ? [v] : []);
 
 export default function Index() {
     const { props } = usePage();
     const { rows, query = {}, filterOptions = {}, stockAlerts = [] } = props;
     const userId = props.auth?.user?.id;
 
-    const [search,  setSearch]  = useState(query.search  || "");
-    const [jenis,   setJenis]   = useState(query.jenis   || "");
-    const [coating, setCoating] = useState(query.coating || "");
+    const [search,      setSearch]      = useState(query.search  || "");
+    const [jenis,       setJenis]       = useState(toArr(query.jenis));
+    const [coating,     setCoating]     = useState(toArr(query.coating));
+    const [indeks,      setIndeks]      = useState(toArr(query.indeks));
+    const [showFilter,  setShowFilter]  = useState(
+        toArr(query.jenis).length > 0 || toArr(query.coating).length > 0 || toArr(query.indeks).length > 0
+    );
 
-    const hasActiveFilter = search || jenis || coating;
+    const totalActive     = jenis.length + coating.length + indeks.length;
+    const hasActiveFilter = search || totalActive > 0;
 
-    // ── Stok habis banner: sekali tampil per sesi stok habis ──────────────
+    /* ── Navigate ───────────────────────────────────────────────────────────── */
+    const nav = (params) =>
+        router.get(route("admin.lensa.index"), params, { preserveState: true, replace: true });
+
+    const toggleJenis = (val) => {
+        const next = jenis.includes(val) ? jenis.filter(v => v !== val) : [...jenis, val];
+        setJenis(next);
+        nav({ search, jenis: next, coating, indeks });
+    };
+    const toggleCoating = (val) => {
+        const next = coating.includes(val) ? coating.filter(v => v !== val) : [...coating, val];
+        setCoating(next);
+        nav({ search, jenis, coating: next, indeks });
+    };
+    const toggleIndeks = (val) => {
+        const next = indeks.includes(val) ? indeks.filter(v => v !== val) : [...indeks, val];
+        setIndeks(next);
+        nav({ search, jenis, coating, indeks: next });
+    };
+
+    const handleSearch = (e) => {
+        e.preventDefault();
+        nav({ search, jenis, coating, indeks });
+    };
+
+    const clearAll = () => {
+        setSearch(""); setJenis([]); setCoating([]); setIndeks([]);
+        nav({});
+    };
+
+    /* ── Stok rendah banner ─────────────────────────────────────────────────── */
     const alertKey = (id) => `sa_l_${userId}_${id}`;
-
     const [alertCards, setAlertCards] = useState([]);
-    const [showBanner, setShowBanner] = useState(false);
+    const [showBanner,  setShowBanner]  = useState(false);
 
     useEffect(() => {
-        const allAlerts = stockAlerts || [];
         const pageItems = rows?.data || [];
-
-        // Bersihkan key dismissed untuk lensa yang sudah direstok (halaman ini)
-        // Sehingga jika stok habis lagi, banner muncul kembali
         pageItems.forEach((card) => {
-            if (card.stok_lensa > 0) {
+            if (!card.is_pesanan && card.stok_lensa > 5) {
                 try { localStorage.removeItem(alertKey(card.id_lensa)); } catch (_) {}
             }
         });
-
-        const toAlert = allAlerts.filter((c) => {
-            try { return !localStorage.getItem(alertKey(c.id_lensa)); }
-            catch (_) { return false; }
+        const toAlert = (stockAlerts || []).filter((c) => {
+            try { return !localStorage.getItem(alertKey(c.id_lensa)); } catch (_) { return false; }
         });
-
         setAlertCards(toAlert);
         if (toAlert.length > 0) setShowBanner(true);
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -119,105 +130,156 @@ export default function Index() {
         setShowBanner(false);
     };
 
-    function apply(e) {
-        e.preventDefault();
-        router.get(route("admin.lensa.index"), { search, jenis, coating }, { preserveState: true, replace: true });
-    }
-
-    function clearAll() {
-        setSearch(""); setJenis(""); setCoating("");
-        router.get(route("admin.lensa.index"), {}, { preserveState: true, replace: true });
-    }
-
     return (
         <SidebarLayout title="Daftar Lensa" subtitle="Kelola data lensa kacamata di cabang ini.">
             <div className="space-y-4">
 
-                {/* Banner stok habis — sekali tampil */}
+                {/* Banner stok rendah */}
                 {showBanner && alertCards.length > 0 && (
-                    <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 shadow-sm">
+                    <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 shadow-sm">
                         <div className="flex-1">
-                            <p className="font-semibold text-red-800">
-                                Stok lensa berikut telah habis:
+                            <p className="font-semibold text-amber-800">
+                                Stok lensa berikut hampir habis atau sudah habis:
                             </p>
-                            <ul className="mt-1 space-y-0.5 text-sm text-red-700">
+                            <ul className="mt-1 space-y-0.5 text-sm text-amber-700">
                                 {alertCards.map((c) => (
                                     <li key={c.id_lensa} className="flex items-center gap-1.5">
-                                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-500" />
+                                        <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
                                         <b>{c.nama_lensa || '(tanpa nama)'}</b>
-                                        {c.jenis_lensa && <span className="text-red-500">— {c.jenis_lensa}</span>}
-                                        {c.coating_lensa && <span className="text-red-400">({c.coating_lensa})</span>}
+                                        {c.jenis_lensa && <span className="text-amber-600">— {c.jenis_lensa}</span>}
+                                        {c.coating_lensa && <span className="text-amber-500">({c.coating_lensa})</span>}
+                                        <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                                            c.stok_lensa === 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'
+                                        }`}>
+                                            Stok: {c.stok_lensa}
+                                        </span>
                                     </li>
                                 ))}
                             </ul>
-                            <p className="mt-2 text-xs text-red-500">Segera lakukan restock atau perbarui stok lensa ini.</p>
+                            <p className="mt-2 text-xs text-amber-600">Segera lakukan restock atau tandai sebagai lensa pesanan.</p>
                         </div>
                         <button type="button" onClick={dismissBanner}
-                            className="shrink-0 rounded-lg p-1 text-red-400 hover:bg-red-100 hover:text-red-700 transition">
+                            className="shrink-0 rounded-lg p-1 text-amber-400 hover:bg-amber-100 hover:text-amber-700">
                             <X className="h-4 w-4" />
                         </button>
                     </div>
                 )}
 
                 {/* Filter bar */}
-                <form onSubmit={apply} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <div className="flex flex-wrap items-end gap-3">
-                        <div className="flex flex-col gap-1">
-                            <label className="text-xs font-semibold text-slate-500">Cari</label>
-                            <input
-                                className="h-10 min-w-[220px] rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-orange-400"
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Nama / jenis / indeks / coating…"
-                            />
-                        </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
 
-                        <FilterCombobox label="Jenis Lensa" value={jenis} onChange={setJenis}
-                            options={filterOptions.jenis || []} placeholder="Semua jenis" />
+                    {/* Row 1: search + filter toggle + add button */}
+                    <form onSubmit={handleSearch} className="flex flex-wrap items-center gap-3">
+                        <input
+                            className="h-10 min-w-[200px] flex-1 rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-orange-400"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Cari nama / jenis / indeks / coating…"
+                        />
 
-                        <FilterCombobox label="Coating" value={coating} onChange={setCoating}
-                            options={filterOptions.coating || []} placeholder="Semua coating" />
-
-                        <button className="h-10 rounded-lg bg-slate-900 px-5 text-sm font-semibold text-white hover:bg-slate-800" type="submit">
-                            Terapkan
+                        {/* Filter toggle button */}
+                        <button
+                            type="button"
+                            onClick={() => setShowFilter((f) => !f)}
+                            className={`flex h-10 items-center gap-2 rounded-lg border px-4 text-sm font-semibold transition ${
+                                showFilter || totalActive > 0
+                                    ? 'border-orange-400 bg-orange-50 text-orange-700'
+                                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                            }`}
+                        >
+                            <Filter className="h-4 w-4" />
+                            Filter
+                            {totalActive > 0 && (
+                                <span className="rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                                    {totalActive}
+                                </span>
+                            )}
                         </button>
+
+                        <button type="submit"
+                            className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800">
+                            Cari
+                        </button>
+
                         {hasActiveFilter && (
                             <button type="button" onClick={clearAll}
                                 className="h-10 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50">
                                 Reset
                             </button>
                         )}
+
                         <div className="ml-auto">
                             <Link href={route("admin.lensa.create")}
                                 className="inline-flex h-10 items-center rounded-lg bg-orange-500 px-4 text-sm font-semibold text-white hover:bg-orange-600">
                                 + Tambah Lensa
                             </Link>
                         </div>
-                    </div>
+                    </form>
 
+                    {/* Checkbox filter panel */}
+                    {showFilter && (
+                        <div className="mt-4 border-t border-slate-100 pt-4">
+                            <div className="flex flex-wrap gap-8">
+                                <CheckboxGroup
+                                    title="Jenis Lensa"
+                                    options={filterOptions.jenis || []}
+                                    selected={jenis}
+                                    onToggle={toggleJenis}
+                                    chipClass="bg-blue-100 text-blue-700"
+                                    checkClass="accent-blue-600"
+                                />
+                                <CheckboxGroup
+                                    title="Coating"
+                                    options={filterOptions.coating || []}
+                                    selected={coating}
+                                    onToggle={toggleCoating}
+                                    chipClass="bg-emerald-100 text-emerald-700"
+                                    checkClass="accent-emerald-600"
+                                />
+                                <CheckboxGroup
+                                    title="Indeks Lensa"
+                                    options={filterOptions.indeks || []}
+                                    selected={indeks}
+                                    onToggle={toggleIndeks}
+                                    chipClass="bg-violet-100 text-violet-700"
+                                    checkClass="accent-violet-600"
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Active filter chips */}
                     {hasActiveFilter && (
                         <div className="mt-3 flex flex-wrap gap-2">
                             {search && (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-800">
                                     Cari: {search}
-                                    <button type="button" onClick={() => setSearch("")}><X className="h-3 w-3" /></button>
+                                    <button type="button" onClick={() => { setSearch(""); nav({ jenis, coating, indeks }); }}>
+                                        <X className="h-3 w-3" />
+                                    </button>
                                 </span>
                             )}
-                            {jenis && (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800">
-                                    Jenis: {jenis}
-                                    <button type="button" onClick={() => setJenis("")}><X className="h-3 w-3" /></button>
+                            {jenis.map((v) => (
+                                <span key={v} className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800">
+                                    {v}
+                                    <button type="button" onClick={() => toggleJenis(v)}><X className="h-3 w-3" /></button>
                                 </span>
-                            )}
-                            {coating && (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
-                                    Coating: {coating}
-                                    <button type="button" onClick={() => setCoating("")}><X className="h-3 w-3" /></button>
+                            ))}
+                            {coating.map((v) => (
+                                <span key={v} className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
+                                    {v}
+                                    <button type="button" onClick={() => toggleCoating(v)}><X className="h-3 w-3" /></button>
                                 </span>
-                            )}
+                            ))}
+                            {indeks.map((v) => (
+                                <span key={v} className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-800">
+                                    Indeks {v}
+                                    <button type="button" onClick={() => toggleIndeks(v)}><X className="h-3 w-3" /></button>
+                                </span>
+                            ))}
                         </div>
                     )}
-                </form>
+                </div>
 
                 {/* Grid kartu lensa */}
                 {rows.data.length === 0 ? (
@@ -229,11 +291,17 @@ export default function Index() {
                 ) : (
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                         {rows.data.map((card) => {
-                            const isHabis = card.stok_lensa === 0;
+                            const isHabis   = card.stok_lensa === 0 && !card.is_pesanan;
+                            const isLow     = !card.is_pesanan && card.stok_lensa > 0 && card.stok_lensa <= 5;
+                            const isPesanan = card.is_pesanan;
+
                             return (
                                 <div key={card.id_lensa}
                                     className={`rounded-xl border bg-white p-4 shadow-sm transition hover:shadow-md ${
-                                        isHabis ? 'border-red-200 hover:border-red-300' : 'border-slate-200 hover:border-orange-200'
+                                        isPesanan ? 'border-blue-200 hover:border-blue-300'
+                                        : isHabis ? 'border-red-200 hover:border-red-300'
+                                        : isLow   ? 'border-amber-200 hover:border-amber-300'
+                                        : 'border-slate-200 hover:border-orange-200'
                                     }`}>
 
                                     {/* Header: gambar + info */}
@@ -251,16 +319,38 @@ export default function Index() {
                                                     </span>
                                                 </div>
                                             )}
+                                            {isPesanan && (
+                                                <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-blue-600/70">
+                                                    <span className="rounded bg-blue-700 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">
+                                                        PESAN
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex flex-wrap items-center gap-1.5">
                                                 <span className="truncate font-semibold text-slate-900">{card.nama_lensa || "—"}</span>
+                                                {isPesanan && (
+                                                    <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">
+                                                        Lensa Pesan
+                                                    </span>
+                                                )}
                                                 {isHabis && (
                                                     <span className="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">
                                                         Stok Habis
                                                     </span>
                                                 )}
+                                                {isLow && (
+                                                    <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">
+                                                        Stok Rendah
+                                                    </span>
+                                                )}
                                             </div>
+                                            {isPesanan && card.nama_pesanan && (
+                                                <div className="mt-0.5 text-xs text-blue-600">
+                                                    Pesan dari: <b>{card.nama_pesanan}</b>
+                                                </div>
+                                            )}
                                             <div className="mt-1 flex flex-wrap gap-1">
                                                 {card.jenis_lensa && (
                                                     <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">
@@ -272,13 +362,19 @@ export default function Index() {
                                                         {card.coating_lensa}
                                                     </span>
                                                 )}
+                                                {card.indeks_lensa && (
+                                                    <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-800">
+                                                        Indeks {card.indeks_lensa}
+                                                    </span>
+                                                )}
                                             </div>
                                             <div className="mt-1.5 text-xs text-gray-500">
-                                                {card.indeks_lensa && <>Indeks <b>{card.indeks_lensa}</b> &nbsp;•&nbsp;</>}
-                                                {isHabis ? (
+                                                {isPesanan ? (
+                                                    <span className="font-semibold text-blue-600">Menunggu kedatangan stok</span>
+                                                ) : isHabis ? (
                                                     <b className="text-red-600">Stok: 0 (Habis)</b>
                                                 ) : (
-                                                    <>Stok: <b className="text-green-700">{card.stok_lensa ?? 0}</b></>
+                                                    <>Stok: <b className={isLow ? "text-amber-600" : "text-green-700"}>{card.stok_lensa ?? 0}</b></>
                                                 )}
                                             </div>
                                         </div>

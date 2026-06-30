@@ -1,4 +1,4 @@
-// appV1.0 Rev 3 - Produk global superadmin dengan katalog manajemen dan panel detail.
+// appV1.0 Rev 4 - Kategori filter: defaults selalu ada + otomatis tambah dari DB.
 
 import SidebarLayout from '@/Components/SidebarLayout';
 import { Head, Link, router } from '@inertiajs/react';
@@ -6,6 +6,8 @@ import { Calendar, Edit, Filter, PackagePlus, Search, Tag, Trash2, X } from 'luc
 import { useMemo, useState } from 'react';
 
 const money = (value) => Number(value || 0).toLocaleString('id-ID');
+
+const DEFAULT_CATEGORIES = ['kacamata', 'soflen', 'air soflen', 'produk lainnya'];
 
 function ProductImage({ product }) {
     if (product.gambar_produk) {
@@ -35,6 +37,11 @@ export default function ProdukGlobal({ products, admins = [], categories = [], f
         () => admins.find((admin) => String(admin.id) === String(adminId)),
         [admins, adminId],
     );
+
+    const allCategories = useMemo(() => {
+        const fromDb = categories.map((c) => String(c || '').toLowerCase()).filter(Boolean);
+        return [...new Set([...DEFAULT_CATEGORIES, ...fromDb])].sort();
+    }, [categories]);
 
     const apply = (event) => {
         event?.preventDefault?.();
@@ -106,7 +113,7 @@ export default function ProdukGlobal({ products, admins = [], categories = [], f
                         </select>
                         <select value={category} onChange={(event) => setCategory(event.target.value)} className="h-11 rounded-lg border-slate-300 text-sm">
                             <option value="">Semua kategori</option>
-                            {categories.map((item) => (
+                            {allCategories.map((item) => (
                                 <option key={item} value={item}>{item}</option>
                             ))}
                         </select>
