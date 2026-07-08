@@ -1,6 +1,6 @@
 <?php
 
-// appV1.0 Rev 5 - POS: status tracking, stock reduction, split payment, print bon, export Excel.
+// appV1.0 Rev 6 - Cari pasien juga lewat No. HP; item manual produk lainnya bisa dikategorikan.
 
 namespace App\Http\Controllers;
 
@@ -313,7 +313,7 @@ class TransaksiController extends Controller
             'produk_id'           => $data['produk_id'] ?? null,
             'kategori_transaksi'  => 'produk_lainnya',
             'tanggal_pesan'       => $data['tanggal_pesanan'],
-            'gagang_pelanggan'    => collect($data['items'] ?? [])->pluck('nama')->filter()->implode(', ') ?: null,
+            'gagang_pelanggan'    => $this->composeItemsDescription($data['items'] ?? []),
             'harga'               => $data['harga'],
             'panjar'              => $data['panjar'] ?? 0,
             'sisa'                => $sisa,
@@ -501,7 +501,7 @@ class TransaksiController extends Controller
             'pasien_id' => $patientId, 'produk_id' => $data['produk_id'] ?? null,
             'kesehatan_id' => null, 'lensa_id' => null, 'lensa_pelanggan' => null,
             'kategori_transaksi' => 'produk_lainnya',
-            'gagang_pelanggan' => collect($data['items'] ?? [])->pluck('nama')->filter()->implode(', ') ?: null,
+            'gagang_pelanggan' => $this->composeItemsDescription($data['items'] ?? []),
             'tanggal_pesan' => $data['tanggal_pesanan'], 'harga' => $data['harga'],
             'panjar' => $data['panjar'] ?? 0, 'sisa' => $sisa,
             'status_pembayaran' => $statusByr,
@@ -738,9 +738,12 @@ class TransaksiController extends Controller
         if ($term === '') return response()->json([]);
         $rows = Pasien::query()
             ->where(function ($q) use ($term) {
-                $q->where('kode_pasien', 'like', "%$term%")->orWhere('nama_pasien', 'like', "%$term%");
+                $q->where('kode_pasien', 'like', "%$term%")
+                  ->orWhere('nama_pasien', 'like', "%$term%")
+                  ->orWhere('nohp_pasien', 'like', "%$term%");
             })
-            ->orderBy('nama_pasien')->limit(10)->get(['id', 'kode_pasien', 'nama_pasien']);
+            ->orderBy('nama_pasien')->limit(10)
+            ->get(['id', 'kode_pasien', 'nama_pasien', 'alamat_pasien', 'nohp_pasien', 'tanggal_buat', 'tanggal_lahir']);
         return response()->json($rows);
     }
 
@@ -762,6 +765,21 @@ class TransaksiController extends Controller
     }
 
     // ─── PRIVATE ──────────────────────────────────────────────────────────────
+
+    /** Gabungkan item manual (produk_lainnya/soflen/air soflen) jadi satu deskripsi, sertakan kategori kalau ada. */
+    private function composeItemsDescription(array $items): ?string
+    {
+        return collect($items)
+            ->map(function ($item) {
+                $nama = trim($item['nama'] ?? '');
+                if ($nama === '') return null;
+                $kategori = trim($item['kategori'] ?? '');
+                return $kategori !== '' ? "[{$kategori}] {$nama}" : $nama;
+            })
+            ->filter()
+            ->implode(', ') ?: null;
+    }
+
     private function transactionCard(Transaksi $t): array
     {
         return [

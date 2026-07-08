@@ -1,6 +1,6 @@
 <?php
 
-// appV1.0 Rev 10 - Auto-format kode_pasien juga diterapkan saat input manual (Tambah & Edit), bukan cuma saat import.
+// appV1.0 Rev 13 - Sort pasien berdasarkan kode_pasien; impor massal tidak lagi melewati baris saat kode bentrok (auto-geser ke slot kosong berikutnya).
 
 namespace App\Http\Controllers;
 
@@ -37,7 +37,7 @@ class PasienController extends Controller
             ->when($activeLetter !== '', function ($query) use ($activeLetter) {
                 $query->where('nama_pasien', 'like', "{$activeLetter}%");
             })
-            ->orderBy('nama_pasien', $sort)
+            ->orderBy('kode_pasien', $sort)
             ->paginate(20)
             ->withQueryString()
             ->through(fn (Pasien $p) => [
@@ -272,7 +272,7 @@ class PasienController extends Controller
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('A');
 
-        $headers = ['No', 'Nama Pasien', 'Kode Pasien', 'Tanggal Daftar', 'Alamat', 'No. HP'];
+        $headers = ['No', 'Nama Pasien', 'No Bon (diabaikan)', 'Tanggal Daftar', 'Alamat', 'No. HP'];
         foreach ($headers as $col => $header) {
             $cell = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1) . '1';
             $sheet->setCellValue($cell, $header);
@@ -282,11 +282,12 @@ class PasienController extends Controller
                 ->getStartColor()->setARGB('FFFFFF00');
         }
 
-        // Kode Pasien: isi angka saja (mis. "250"), sistem auto-prefix huruf + pad 7 digit → "B0000250"
+        // Kolom "No" (nomor urut, WAJIB unik & angka) → sumber kode_pasien: huruf depan nama + pad 7 digit.
+        // Contoh: No=1, Nama=Aroen → "A0000001". Kolom "No Bon" diabaikan, boleh kosong/diisi bebas.
         $examples = [
-            ['1', 'Aroen',  '',    '14-04-2007', 'Jl. Arengka No. 1',  '08123456789'],
-            ['2', 'Budi',   '250', '01-01-2008', 'Jl. Sudirman No. 5', '08120000001'],
-            ['3', 'Candra', '',    '15-03-2009', 'Jl. Riau No. 10',    ''],
+            ['1', 'Aroen',  '',      '14-04-2007', 'Jl. Arengka No. 1',  '08123456789'],
+            ['2', 'Budi',   'BN045', '01-01-2008', 'Jl. Sudirman No. 5', '08120000001'],
+            ['3', 'Candra', '',      '15-03-2009', 'Jl. Riau No. 10',    ''],
         ];
 
         foreach ($examples as $rowIdx => $rowData) {
@@ -332,7 +333,6 @@ class PasienController extends Controller
         $sheetNames  = $spreadsheet->getSheetNames();
 
         $imported  = 0;
-        $skipped   = 0;
         $rowErrors = [];
 
         foreach ($sheetNames as $sheetName) {
@@ -343,9 +343,9 @@ class PasienController extends Controller
                 $actualRow = $idx + 2;
                 $cols      = array_values(array_slice($row, 0, 6));
 
-                // Kolom: No | Nama Pasien | Kode Pasien (atau No Bon) | Tanggal Daftar | Alamat | No. HP
+                // Kolom: No | Nama Pasien | No Bon (nomor kertas bon transaksi, BUKAN kode pasien — diabaikan) | Tanggal Daftar | Alamat | No. HP
+                $noUrut  = $this->trimVal($cols[0] ?? null);
                 $nama    = $this->trimVal($cols[1] ?? null);
-                $kodeRaw = $this->trimVal($cols[2] ?? null);
                 $tanggal = $this->trimVal($cols[3] ?? null);
                 $alamat  = $this->trimVal($cols[4] ?? null);
                 $nohp    = $this->trimVal($cols[5] ?? null);
@@ -354,16 +354,15 @@ class PasienController extends Controller
 
                 $nama   = $this->cleanName($nama);
                 $alamat = $this->cleanName($alamat);
-                $kode   = $this->buildKodePasien($kodeRaw, $nama);
+                $kode   = $this->buildKodePasien($noUrut, $nama);
 
-                if ($kode !== null && Pasien::where('kode_pasien', $kode)->exists()) {
-                    $rowErrors[] = "Sheet {$sheetName} Baris {$actualRow}: Kode Pasien '{$kode}' sudah terdaftar, dilewati.";
-                    $skipped++;
-                    continue;
+                $finalKode = $kode !== null ? $this->resolveUniqueKode($kode) : null;
+                if ($finalKode !== null && $finalKode !== $kode) {
+                    $rowErrors[] = "Sheet {$sheetName} Baris {$actualRow}: Kode Pasien '{$kode}' sudah terdaftar, otomatis diganti menjadi '{$finalKode}' agar data tidak hilang.";
                 }
 
                 $pasien = Pasien::create([
-                    'kode_pasien'   => $kode,
+                    'kode_pasien'   => $finalKode,
                     'nama_pasien'   => $nama,
                     'tanggal_buat'  => $this->parseFlexDate($tanggal),
                     'alamat_pasien' => $alamat,
@@ -377,7 +376,6 @@ class PasienController extends Controller
         }
 
         $msg = "{$imported} pasien berhasil diimpor dari Excel.";
-        if ($skipped > 0) $msg .= " {$skipped} baris dilewati.";
 
         session()->flash('import_errors', $rowErrors);
         return redirect()->route('pasien.index')->with('success', $msg);
@@ -403,9 +401,9 @@ class PasienController extends Controller
             $rowNum++;
             if (count($cols) < 2) continue;
 
-            // Kolom CSV: No | Nama Pasien | Kode Pasien | Tanggal Daftar | Alamat | No. HP
+            // Kolom CSV: No | Nama Pasien | No Bon (nomor kertas bon transaksi, BUKAN kode pasien — diabaikan) | Tanggal Daftar | Alamat | No. HP
+            $noUrut  = $this->trimVal($cols[0] ?? null);
             $nama    = $this->trimVal($cols[1] ?? null);
-            $kodeRaw = $this->trimVal($cols[2] ?? null);
             $tanggal = $this->trimVal($cols[3] ?? null);
             $alamat  = $this->trimVal($cols[4] ?? null);
             $nohp    = $this->trimVal($cols[5] ?? null);
@@ -418,16 +416,15 @@ class PasienController extends Controller
 
             $nama   = $this->cleanName($nama);
             $alamat = $this->cleanName($alamat);
-            $kode   = $this->buildKodePasien($kodeRaw, $nama);
+            $kode   = $this->buildKodePasien($noUrut, $nama);
 
-            if ($kode !== null && Pasien::where('kode_pasien', $kode)->exists()) {
-                $rowErrors[] = "Baris {$rowNum}: Kode Pasien '{$kode}' sudah terdaftar, dilewati.";
-                $skipped++;
-                continue;
+            $finalKode = $kode !== null ? $this->resolveUniqueKode($kode) : null;
+            if ($finalKode !== null && $finalKode !== $kode) {
+                $rowErrors[] = "Baris {$rowNum}: Kode Pasien '{$kode}' sudah terdaftar, otomatis diganti menjadi '{$finalKode}' agar data tidak hilang.";
             }
 
             $pasien = Pasien::create([
-                'kode_pasien'   => $kode,
+                'kode_pasien'   => $finalKode,
                 'nama_pasien'   => $nama,
                 'tanggal_buat'  => $this->parseFlexDate($tanggal),
                 'alamat_pasien' => $alamat,
@@ -449,7 +446,7 @@ class PasienController extends Controller
     }
 
     /**
-     * Bangun kode_pasien dari kolom "Kode Pasien" / "No Bon":
+     * Bangun kode_pasien dari kolom "No" (nomor urut pasien, BUKAN "No Bon" kertas transaksi):
      *  - Sudah ada huruf di depan + digit → pad digit ke 7 (mis. "B250" → "B0000250").
      *  - Hanya digit → prefix huruf pertama nama + pad ke 7 (mis. "250" + Budi → "B0000250").
      *  - Non-standard (ada tanda baca/tanggal) → prefix huruf + simpan as-is.
@@ -477,6 +474,37 @@ class PasienController extends Controller
 
         // Non-standard (tanda baca, tanggal, dll) → prefix + raw
         return $prefix . $rawKode;
+    }
+
+    /**
+     * Saat impor massal, dua orang berbeda bisa menghasilkan kode_pasien yang sama
+     * (kolom "No" hanya posisi baris per-sheet, bukan nomor urut global unik).
+     * Daripada baris kedua dilewati (data hilang), nomornya digeser ke slot
+     * berikutnya yang masih kosong agar semua pasien tetap tersimpan.
+     */
+    private function resolveUniqueKode(string $kode): string
+    {
+        if (!Pasien::where('kode_pasien', $kode)->exists()) {
+            return $kode;
+        }
+
+        if (preg_match('/^([A-Za-z])(\d+)$/', $kode, $m)) {
+            $letter = $m[1];
+            $len    = strlen($m[2]);
+            $num    = (int) $m[2];
+            do {
+                $num++;
+                $candidate = $letter . str_pad((string) $num, $len, '0', STR_PAD_LEFT);
+            } while (Pasien::where('kode_pasien', $candidate)->exists());
+            return $candidate;
+        }
+
+        $suffix = 2;
+        do {
+            $candidate = $kode . '-' . $suffix;
+            $suffix++;
+        } while (Pasien::where('kode_pasien', $candidate)->exists());
+        return $candidate;
     }
 
     /**

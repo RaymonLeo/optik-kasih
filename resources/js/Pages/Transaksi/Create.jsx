@@ -1,8 +1,9 @@
-// appV1.0 Rev 5 - Fix bug: qty item manual dengan angka nol di depan bisa tersimpan salah.
+// appV1.0 Rev 6 - Tab Soflen/Air Soflen, cari pasien pakai No.HP + hover card, kategori item manual, gagang sendiri.
 
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useForm, usePage } from "@inertiajs/react";
 import SidebarLayout from "@/Components/SidebarLayout";
+import PatientHoverCard from "@/Components/patients/PatientHoverCard";
 
 /* ── UI helpers ───────────────────────────────────────────────────────────── */
 function Section({ title, children }) {
@@ -140,6 +141,36 @@ function TabBtn({ value, activeTab, onTabChange, children }) {
   );
 }
 
+/* ── Cari pasien: kode / nama / no. HP, dengan hover-card detail ────────────── */
+function PatientSearchField({ value, onChange, suggestions, showSug, setShowSug, onPick }) {
+  const [hoverId, setHoverId] = useState(null);
+  return (
+    <div className="relative">
+      <input value={value}
+        onChange={e => onChange(e.target.value)}
+        onFocus={() => setShowSug(true)}
+        placeholder="Ketik Kode / Nama / No. HP Pasien"
+        className="h-10 w-full rounded border px-3" />
+      {showSug && suggestions.length > 0 && (
+        <div className="absolute z-20 mt-1 w-full rounded-xl border bg-white shadow max-h-60 overflow-auto">
+          {suggestions.map(p => (
+            <div key={p.id} className="relative"
+              onMouseEnter={() => setHoverId(p.id)}
+              onMouseLeave={() => setHoverId(null)}>
+              <button type="button" className="w-full px-3 py-2 text-left hover:bg-orange-50"
+                onClick={() => { onPick(p); setShowSug(false); }}>
+                <b>{p.kode_pasien}</b> — {p.nama_pasien}
+                {p.nohp_pasien && <span className="ml-2 text-xs text-gray-400">{p.nohp_pasien}</span>}
+              </button>
+              {hoverId === p.id && <PatientHoverCard patient={p} />}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RowRX({ eye, rx, onChangeRx }) {
   const fields = ["SPH", "CYL", "AXIS", "PRISM", "BASE", "ADD", "MPD"];
   return (
@@ -163,13 +194,22 @@ export default function Create({ mode = "create", prefill = null }) {
   const produkLainnya  = props.produkLainnya  || [];
   const lensaStok      = props.lensaStok      || [];
 
+  // Kategori produk (dari data yang sudah pernah diinput admin/superadmin) untuk dropdown item manual.
+  const kategoriOptions = useMemo(() => {
+    const fromDb = produkLainnya.map(p => (p.kategori || "").toLowerCase()).filter(Boolean);
+    return [...new Set(["soflen", "air soflen", "produk lainnya", ...fromDb])].sort();
+  }, [produkLainnya]);
+
+  const produkSoflen    = useMemo(() => produkLainnya.filter(p => (p.kategori || "").toLowerCase() === "soflen"), [produkLainnya]);
+  const produkAirSoflen = useMemo(() => produkLainnya.filter(p => (p.kategori || "").toLowerCase() === "air soflen"), [produkLainnya]);
+
   const isEdit = mode === "edit";
 
   const defaultForm = useMemo(() => ({
     type: "resep",
     kode_pasien: "", pasien: { id: null, nama: "", alamat: "", telepon: "" },
     tanggal_pesanan: "", tanggal_selesai: "",
-    frame: "", lensa: "", lensa_id: "", produk_id: "",
+    frame: "", lensa: "", lensa_id: "", produk_id: "", gagang_sendiri: false,
     rx: {
       OD: { SPH: 0, CYL: 0, AXIS: 0, PRISM: 0, BASE: 0, ADD: 0, MPD: 0 },
       OS: { SPH: 0, CYL: 0, AXIS: 0, PRISM: 0, BASE: 0, ADD: 0, MPD: 0 },
@@ -178,7 +218,7 @@ export default function Create({ mode = "create", prefill = null }) {
     metode_pembayaran_1: "Transfer", metode_pembayaran_2: "",
     jumlah_bayar_1: 0, jumlah_bayar_2: 0,
     exam_date: "",
-    items: [{ nama: "", qty: 1, harga: 0 }],
+    items: [{ nama: "", qty: 1, harga: 0, kategori: "" }],
     qty: 1,
     tanpa_pasien: false,
     _id: null, _kode: null,
@@ -244,12 +284,16 @@ export default function Create({ mode = "create", prefill = null }) {
   }
 
   /* ── Tab ─────────────────────────────────────────────────────── */
+  // Inisialisasi tab dari data.type saat mount (mis. mode edit); perubahan tab selanjutnya
+  // murni dikendalikan oleh handleTabChange, supaya tab Soflen/Air Soflen tidak ketimpa balik ke "lain".
   const [tab, setTab] = useState(() => data.type === "produk" ? "lain" : "resep");
-  useEffect(() => setTab(data.type === "produk" ? "lain" : "resep"), [data.type]);
   function handleTabChange(value) {
     setTab(value);
     setData("type", value === "resep" ? "resep" : "produk");
   }
+
+  const pickerList  = tab === "soflen" ? produkSoflen : tab === "air_soflen" ? produkAirSoflen : produkLainnya;
+  const pickerTitle = tab === "soflen" ? "Pilih Soflen dari Stok" : tab === "air_soflen" ? "Pilih Air Soflen dari Stok" : "Pilih Produk";
 
   /* ── Pickers ─────────────────────────────────────────────────── */
   const [showKacamataPicker, setShowKacamataPicker] = useState(false);
@@ -296,8 +340,10 @@ export default function Create({ mode = "create", prefill = null }) {
         <Link href={route("admin.transaksi.index")} className="text-orange-700 hover:underline">← Kembali</Link>
       </div>
 
-      <div className="mb-4 flex gap-3">
+      <div className="mb-4 flex flex-wrap gap-3">
         <TabBtn value="resep" activeTab={tab} onTabChange={handleTabChange}>🕶 Kacamata</TabBtn>
+        <TabBtn value="soflen" activeTab={tab} onTabChange={handleTabChange}>🔵 Soflen</TabBtn>
+        <TabBtn value="air_soflen" activeTab={tab} onTabChange={handleTabChange}>💧 Air Soflen</TabBtn>
         <TabBtn value="lain" activeTab={tab} onTabChange={handleTabChange}>📦 Produk Lainnya</TabBtn>
       </div>
 
@@ -307,24 +353,15 @@ export default function Create({ mode = "create", prefill = null }) {
           <Section>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               {/* Pasien */}
-              <Field label="Kode / Nama Pasien" required>
-                <div className="relative">
-                  <input value={data.kode_pasien}
-                    onChange={e => { setData("kode_pasien", e.target.value); if (e.target.value) fetchByCode(e.target.value); }}
-                    onFocus={() => setShowSug(true)}
-                    placeholder="Ketik Kode / Nama Pasien"
-                    className="h-10 w-full rounded border px-3" />
-                  {showSug && suggestions.length > 0 && (
-                    <div className="absolute z-20 mt-1 w-full rounded-xl border bg-white shadow max-h-60 overflow-auto">
-                      {suggestions.map(p => (
-                        <button key={p.id} type="button" className="w-full px-3 py-2 text-left hover:bg-orange-50"
-                          onClick={() => { setData("kode_pasien", p.kode_pasien); fetchByCode(p.kode_pasien); setShowSug(false); }}>
-                          <b>{p.kode_pasien}</b> — {p.nama_pasien}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+              <Field label="Kode / Nama / No. HP Pasien" required>
+                <PatientSearchField
+                  value={data.kode_pasien}
+                  onChange={v => { setData("kode_pasien", v); if (v) fetchByCode(v); }}
+                  suggestions={suggestions}
+                  showSug={showSug}
+                  setShowSug={setShowSug}
+                  onPick={p => { setData("kode_pasien", p.kode_pasien); fetchByCode(p.kode_pasien); }}
+                />
                 {errors.kode_pasien && <div className="mt-1 text-sm text-red-600">{errors.kode_pasien}</div>}
               </Field>
               <Field label="Nama Pasien">
@@ -347,25 +384,44 @@ export default function Create({ mode = "create", prefill = null }) {
 
           {/* Frame dari stok */}
           <Section title="Frame Kacamata">
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="flex-1">
-                <label className="mb-1 block text-sm text-gray-600">Frame (ketik manual)</label>
-                <input value={data.frame} onChange={e => setData("frame", e.target.value)}
-                  className="h-10 w-full rounded border px-3" placeholder="Contoh: Ray-Ban RB3025" />
+            <label className="mb-3 flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" checked={data.gagang_sendiri}
+                onChange={e => {
+                  const checked = e.target.checked;
+                  setData("gagang_sendiri", checked);
+                  setSelectedFrame(null);
+                  setData("produk_id", "");
+                  setData("frame", checked ? "Gagang Sendiri (Bawa Sendiri)" : "");
+                }} />
+              🏠 Gagang bawa sendiri (pelanggan tidak beli gagang dari optik)
+            </label>
+            {data.gagang_sendiri ? (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                ✓ Pelanggan membawa gagang sendiri — tidak ada gagang yang dijual dari stok optik.
               </div>
-              <button type="button" onClick={() => setShowKacamataPicker(true)}
-                className="flex h-10 items-center gap-2 rounded-lg border border-orange-400 bg-orange-50 px-4 text-sm font-semibold text-orange-700 hover:bg-orange-100">
-                🕶 Pilih dari Stok
-              </button>
-            </div>
-            {selectedFrame && (
-              <div className="mt-2 flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm">
-                <span className="font-semibold text-orange-800">{selectedFrame.nama_produk}</span>
-                <span className="text-gray-500">Rp {fmtIDR(selectedFrame.harga_produk)}</span>
-                <span className="text-gray-400">Stok: {selectedFrame.stok}</span>
-                <button type="button" onClick={() => { setSelectedFrame(null); setData("produk_id", ""); setData("frame", ""); }}
-                  className="ml-auto text-gray-400 hover:text-gray-700">✕</button>
-              </div>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="flex-1">
+                    <label className="mb-1 block text-sm text-gray-600">Frame (ketik manual)</label>
+                    <input value={data.frame} onChange={e => setData("frame", e.target.value)}
+                      className="h-10 w-full rounded border px-3" placeholder="Contoh: Ray-Ban RB3025" />
+                  </div>
+                  <button type="button" onClick={() => setShowKacamataPicker(true)}
+                    className="flex h-10 items-center gap-2 rounded-lg border border-orange-400 bg-orange-50 px-4 text-sm font-semibold text-orange-700 hover:bg-orange-100">
+                    🕶 Pilih dari Stok
+                  </button>
+                </div>
+                {selectedFrame && (
+                  <div className="mt-2 flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm">
+                    <span className="font-semibold text-orange-800">{selectedFrame.nama_produk}</span>
+                    <span className="text-gray-500">Rp {fmtIDR(selectedFrame.harga_produk)}</span>
+                    <span className="text-gray-400">Stok: {selectedFrame.stok}</span>
+                    <button type="button" onClick={() => { setSelectedFrame(null); setData("produk_id", ""); setData("frame", ""); }}
+                      className="ml-auto text-gray-400 hover:text-gray-700">✕</button>
+                  </div>
+                )}
+              </>
             )}
           </Section>
 
@@ -465,9 +521,9 @@ export default function Create({ mode = "create", prefill = null }) {
         </>
       )}
 
-      {/* ── PRODUK LAINNYA TAB ───────────────────────────────────── */}
-      {tab === "lain" && (
-        <Section>
+      {/* ── SOFLEN / AIR SOFLEN / PRODUK LAINNYA TAB ────────────────── */}
+      {(tab === "lain" || tab === "soflen" || tab === "air_soflen") && (
+        <Section title={tab === "soflen" ? "Transaksi Soflen" : tab === "air_soflen" ? "Transaksi Air Soflen" : "Transaksi Produk Lainnya"}>
           {/* Pasien (opsional) */}
           <div className="mb-3 flex items-center gap-3">
             <input id="tp" type="checkbox" checked={data.tanpa_pasien} onChange={e => setData("tanpa_pasien", e.target.checked)} />
@@ -475,9 +531,15 @@ export default function Create({ mode = "create", prefill = null }) {
           </div>
           {!data.tanpa_pasien && (
             <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-              <Field label="Kode Pasien">
-                <input value={data.kode_pasien} onChange={e => { setData("kode_pasien", e.target.value); fetchByCode(e.target.value); }}
-                  className="h-10 w-full rounded border px-3" placeholder="Ketik Kode Pasien" />
+              <Field label="Kode / Nama / No. HP Pasien">
+                <PatientSearchField
+                  value={data.kode_pasien}
+                  onChange={v => { setData("kode_pasien", v); if (v) fetchByCode(v); }}
+                  suggestions={suggestions}
+                  showSug={showSug}
+                  setShowSug={setShowSug}
+                  onPick={p => { setData("kode_pasien", p.kode_pasien); fetchByCode(p.kode_pasien); }}
+                />
               </Field>
               <Field label="Nama Pasien">
                 <input value={data.pasien.nama} readOnly className="h-10 w-full rounded border bg-gray-100 px-3" />
@@ -491,10 +553,12 @@ export default function Create({ mode = "create", prefill = null }) {
           {/* Produk dari stok */}
           <div className="mb-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm font-semibold text-gray-700">Produk dari Stok</p>
+              <p className="text-sm font-semibold text-gray-700">
+                {tab === "soflen" ? "Soflen dari Stok" : tab === "air_soflen" ? "Air Soflen dari Stok" : "Produk dari Stok"}
+              </p>
               <button type="button" onClick={() => setShowLainPicker(true)}
                 className="flex items-center gap-2 rounded-lg border border-sky-400 bg-sky-50 px-4 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-100">
-                📦 Pilih Produk
+                📦 {tab === "soflen" ? "Pilih Soflen" : tab === "air_soflen" ? "Pilih Air Soflen" : "Pilih Produk"}
               </button>
             </div>
             {selectedProduk ? (
@@ -527,6 +591,7 @@ export default function Create({ mode = "create", prefill = null }) {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-2 py-2 text-left">Nama Barang</th>
+                  <th className="px-2 py-2 text-left">Kategori</th>
                   <th className="px-2 py-2 text-left">Qty</th>
                   <th className="px-2 py-2 text-left">Harga</th>
                   <th className="px-2 py-2 text-right">Subtotal</th>
@@ -544,6 +609,17 @@ export default function Create({ mode = "create", prefill = null }) {
                           placeholder="Soflen / Pembersih / dll" />
                       </td>
                       <td className="px-2 py-2">
+                        {tab === "lain" ? (
+                          <input list="kategori-item-list" className="h-10 w-36 rounded border px-2" value={it.kategori || ""}
+                            onChange={e => { const items = [...data.items]; items[idx].kategori = e.target.value; setData("items", items); }}
+                            placeholder="Kategori produk" />
+                        ) : (
+                          <span className="inline-flex h-10 items-center rounded bg-gray-100 px-2 text-xs font-semibold text-gray-600">
+                            {tab === "soflen" ? "Soflen" : "Air Soflen"}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-2 py-2">
                         <input type="number" min="1" className="h-10 w-20 rounded border px-2" value={it.qty}
                           onChange={e => { const items = [...data.items]; items[idx].qty = e.target.value === '' ? '' : parseInt(e.target.value, 10) || 1; setData("items", items); }} />
                       </td>
@@ -554,7 +630,7 @@ export default function Create({ mode = "create", prefill = null }) {
                       <td className="px-2 py-2 text-right">{subtotal.toLocaleString("id-ID")}</td>
                       <td className="px-2 py-2 text-right">
                         <button type="button" className="rounded bg-rose-100 px-2 py-1 text-rose-700"
-                          onClick={() => { const items = data.items.filter((_, i) => i !== idx); setData("items", items.length ? items : [{ nama: "", qty: 1, harga: 0 }]); }}>
+                          onClick={() => { const items = data.items.filter((_, i) => i !== idx); setData("items", items.length ? items : [{ nama: "", qty: 1, harga: 0, kategori: "" }]); }}>
                           Hapus
                         </button>
                       </td>
@@ -563,9 +639,15 @@ export default function Create({ mode = "create", prefill = null }) {
                 })}
               </tbody>
             </table>
+            <datalist id="kategori-item-list">
+              {kategoriOptions.map(k => <option key={k} value={k} />)}
+            </datalist>
             <div className="mt-3">
               <button type="button" className="rounded bg-gray-900 px-3 py-2 text-white"
-                onClick={() => setData("items", [...data.items, { nama: "", qty: 1, harga: 0 }])}>
+                onClick={() => setData("items", [...data.items, {
+                  nama: "", qty: 1, harga: 0,
+                  kategori: tab === "soflen" ? "soflen" : tab === "air_soflen" ? "air soflen" : "",
+                }])}>
                 + Tambah Item
               </button>
             </div>
@@ -641,7 +723,7 @@ export default function Create({ mode = "create", prefill = null }) {
       <ProdukPicker open={showKacamataPicker} onClose={() => setShowKacamataPicker(false)}
         list={produkKacamata} title="Pilih Frame Kacamata" onSelect={onSelectFrame} />
       <ProdukPicker open={showLainPicker} onClose={() => setShowLainPicker(false)}
-        list={produkLainnya} title="Pilih Produk" onSelect={onSelectProduk} />
+        list={pickerList} title={pickerTitle} onSelect={onSelectProduk} />
       <LensaPicker open={showLensaPicker} onClose={() => setShowLensaPicker(false)}
         list={lensaStok} onSelect={onSelectLensa} />
     </div>

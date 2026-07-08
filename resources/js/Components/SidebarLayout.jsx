@@ -36,7 +36,8 @@ export default function SidebarLayout({ children, title = "Dashboard", subtitle 
   const unreadNotifications = Number(props.notifications?.unread_count || 0);
   const pendingDeletionRequests = Number(props.approvals?.pending_deletion_count || 0);
 
-  const isActive = (href) => url === href || url.startsWith(`${href}/`);
+  const path = url.split("?")[0];
+  const isActive = (href) => path === href || path.startsWith(`${href}/`);
 
   const menuGroups = useMemo(() => {
     if (isSuperAdmin) {

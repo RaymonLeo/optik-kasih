@@ -1,4 +1,4 @@
-// appV1.0 Rev 10 - Filter abjad A-Z + sort ascending/descending.
+// appV1.0 Rev 11 - Sinkronkan preview kolom import dengan logika kolom "No" yang benar (bukan "No Bon"/"Kode Pasien").
 
 import React, { useRef, useState, useCallback } from 'react';
 import { router, Head, usePage } from '@inertiajs/react';
@@ -137,14 +137,14 @@ function Index() {
               <table className="min-w-full text-xs">
                 <thead className="bg-yellow-100">
                   <tr>
-                    {['No', 'Nama Pasien', 'Kode Pasien', 'Tanggal Daftar', 'Alamat', 'No. HP'].map((h) => (
+                    {['No', 'Nama Pasien', 'No Bon (diabaikan)', 'Tanggal Daftar', 'Alamat', 'No. HP'].map((h) => (
                       <th key={h} className="border border-yellow-300 px-3 py-1.5 text-left font-semibold text-gray-700">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   <tr className="text-gray-500">
-                    <td className="border border-gray-200 px-3 py-1">1</td>
+                    <td className="border border-gray-200 px-3 py-1 font-semibold text-orange-700">1</td>
                     <td className="border border-gray-200 px-3 py-1">Aroen</td>
                     <td className="border border-gray-200 px-3 py-1 italic text-gray-400">(boleh kosong)</td>
                     <td className="border border-gray-200 px-3 py-1">14-04-2007</td>
@@ -152,9 +152,9 @@ function Index() {
                     <td className="border border-gray-200 px-3 py-1 italic text-gray-400">(boleh kosong)</td>
                   </tr>
                   <tr className="bg-gray-50 text-gray-500">
-                    <td className="border border-gray-200 px-3 py-1">2</td>
+                    <td className="border border-gray-200 px-3 py-1 font-semibold text-orange-700">2</td>
                     <td className="border border-gray-200 px-3 py-1">Budi</td>
-                    <td className="border border-gray-200 px-3 py-1">250</td>
+                    <td className="border border-gray-200 px-3 py-1 italic text-gray-400">(diabaikan)</td>
                     <td className="border border-gray-200 px-3 py-1">01-01-2008</td>
                     <td className="border border-gray-200 px-3 py-1">Jl. Sudirman No. 5</td>
                     <td className="border border-gray-200 px-3 py-1">0812000001</td>
@@ -163,7 +163,7 @@ function Index() {
               </table>
             </div>
             <p className="mb-3 text-xs text-orange-600">
-              Excel multi-sheet (A–Z) dibaca otomatis. Baris tanpa Nama dilewati. Kode Pasien boleh kosong atau diisi angka saja — huruf depan nama ditambahkan otomatis (mis. "250" → "B250").
+              Excel multi-sheet (A–Z) dibaca otomatis. Baris tanpa Nama dilewati. Kolom <b>No</b> (nomor urut) yang dipakai untuk membuat Kode Pasien — huruf depan nama ditambahkan otomatis lalu di-pad 7 digit (mis. No=1, Nama=Aroen → "A0000001"). Kolom "No Bon" diabaikan sepenuhnya.
             </p>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -203,17 +203,18 @@ function Index() {
           {/* Sort toggle */}
           <button
             onClick={handleSort}
-            title={sort === 'asc' ? 'Urutan: A → Z (klik untuk Z → A)' : 'Urutan: Z → A (klik untuk A → Z)'}
+            title={sort === 'asc' ? 'Urutan Kode Pasien: A0000001 → Z9999999 (klik untuk kebalikannya)' : 'Urutan Kode Pasien: Z9999999 → A0000001 (klik untuk kebalikannya)'}
             className={`flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-semibold transition
               ${sort === 'desc'
                 ? 'border-orange-400 bg-orange-100 text-orange-700'
                 : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
               }`}
           >
+            <span>Kode</span>
             {sort === 'asc' ? (
-              <><span>A</span><svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3l4 6H4l4-6z"/></svg><span>Z</span></>
+              <svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3l4 6H4l4-6z"/></svg>
             ) : (
-              <><span>Z</span><svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 13l4-6H4l4 6z"/></svg><span>A</span></>
+              <svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 13l4-6H4l4 6z"/></svg>
             )}
           </button>
           {hasFilter && (
@@ -250,7 +251,7 @@ function Index() {
               ? <>Menampilkan <b>{total}</b> pasien berawalan <b>"{letter}"</b></>
               : <>Menampilkan <b>{total}</b> hasil untuk <b>"{q}"</b></>
             }
-            {' — '}urutan <b>{sort === 'asc' ? 'A → Z' : 'Z → A'}</b>
+            {' — '}urutan kode <b>{sort === 'asc' ? 'naik' : 'turun'}</b>
           </p>
         )}
 
