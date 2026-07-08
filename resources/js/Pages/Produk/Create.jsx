@@ -1,13 +1,36 @@
-// appV1.0 Rev 10 - Hybrid kategori: defaults always present + admin can add custom via FilterCombobox.
+// appV1.0 Rev 18 - Fix: kategori tanpa riwayat brand tidak lagi jatuh balik ke semua brand kategori lain.
 
 import { useMemo, useRef, useState } from 'react';
 import SidebarLayout from '@/Components/SidebarLayout';
 import { Link, router, useForm } from '@inertiajs/react';
 import { ChevronDown, Star, Trash2, X } from 'lucide-react';
+import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
 const today = () => new Date().toISOString().split('T')[0];
+const toNumber = (txt) => { const raw = String(txt ?? '').replace(/[^\d]/g, ''); return raw ? parseInt(raw, 10) : 0; };
+const fmtIDR   = (n)   => Number(n || 0).toLocaleString('id-ID');
+
+function MoneyInput({ value, onChange, error }) {
+    return (
+        <input
+            type="text"
+            inputMode="numeric"
+            value={value ? fmtIDR(value) : ''}
+            onChange={(e) => onChange(toNumber(e.target.value))}
+            placeholder="Rp 0"
+            className={`h-11 w-full rounded-lg border-gray-300 ${error ? 'border-red-400' : ''}`}
+        />
+    );
+}
 
 const DEFAULT_CATEGORIES = ['kacamata', 'soflen', 'air soflen', 'produk lainnya'];
+const DEFAULT_COLORS = ['hitam', 'putih', 'coklat', 'abu-abu', 'tortoise/motif', 'emas', 'perak', 'merah', 'biru', 'hijau', 'kuning', 'bening'];
+const DEFAULT_DIAMETERS = ['13.8', '14.0', '14.2', '14.5'];
+const DEFAULT_MATERIALS = ['plastik', 'besi'];
+const DEFAULT_MINUSES = [
+    'plano', '-0.50', '-1.00', '-1.50', '-2.00', '-2.50', '-3.00', '-3.50', '-4.00', '-4.50', '-5.00', '-5.50', '-6.00',
+    '+0.50', '+1.00', '+1.50', '+2.00',
+];
 
 function Field({ label, error, children }) {
     return (
@@ -115,6 +138,11 @@ export default function ProdukCreate({
     selectedAdminId = '',
     existingCategories = [],
     existingBrands = [],
+    existingBrandsByCategory = {},
+    existingColors = [],
+    existingDiameters = [],
+    existingMaterials = [],
+    existingMinuses = [],
 }) {
     const isEdit = Boolean(produk?.id);
 
@@ -124,6 +152,10 @@ export default function ProdukCreate({
         nama_produk:            produk?.nama_produk || '',
         kategori_produk:        produk?.kategori_produk || '',
         brand_produk:           produk?.brand_produk || '',
+        warna_produk:           produk?.warna_produk || '',
+        diameter_produk:        produk?.diameter_produk || '',
+        bahan_produk:           produk?.bahan_produk || '',
+        minus_produk:           produk?.minus_produk || '',
         jumlah_produk:          produk?.jumlah_produk || 0,
         harga_produk:           produk?.harga_produk || 0,
         tanggal_masuk:          produk?.tanggal_masuk || today(),
@@ -136,13 +168,34 @@ export default function ProdukCreate({
         gambar_produk_tambahan: [],
     });
 
-    const submit = (event) => {
-        event.preventDefault();
+    const isKacamata = data.kategori_produk === 'kacamata';
+    const isSoflen = data.kategori_produk === 'soflen';
+
+    const [showFrameConfirm, setShowFrameConfirm] = useState(false);
+
+    const doSubmit = () => {
         // Always post(): _method:'put' in form data routes to update(); real POST fills $_FILES.
         const url = isEdit
             ? route(`${routeBase}.update`, produk.id)
             : route(`${routeBase}.store`);
         post(url, { forceFormData: true, preserveScroll: true });
+    };
+
+    const submit = (event) => {
+        event.preventDefault();
+
+        const hasFrameSize = data.lebar_lensa || data.gagang_hidung || data.panjang_gagang;
+        if (isKacamata && !hasFrameSize) {
+            setShowFrameConfirm(true);
+            return;
+        }
+
+        doSubmit();
+    };
+
+    const confirmSubmitWithoutFrame = () => {
+        setShowFrameConfirm(false);
+        doSubmit();
     };
 
     const removeAdditionalImage = (image) => {
@@ -154,12 +207,39 @@ export default function ProdukCreate({
         router.post(route(`${routeBase}.images.thumbnail`, [produk.id, image.id]), {}, { preserveScroll: true });
     };
 
-    const brandOptions = existingBrands.map((b) => (b || '').toLowerCase()).filter(Boolean);
+    const brandOptions = useMemo(() => {
+        // Belum pilih kategori: tampilkan semua brand sebagai starting point.
+        // Sudah pilih kategori: HANYA brand kategori itu, walau hasilnya kosong.
+        const source = data.kategori_produk
+            ? (existingBrandsByCategory[data.kategori_produk] || [])
+            : existingBrands;
+        return [...new Set(source.map((b) => (b || '').toLowerCase()).filter(Boolean))].sort();
+    }, [existingBrandsByCategory, existingBrands, data.kategori_produk]);
 
     const categoryOptions = useMemo(() => {
         const fromDb = existingCategories.map((c) => (c || '').toLowerCase()).filter(Boolean);
         return [...new Set([...DEFAULT_CATEGORIES, ...fromDb])].sort();
     }, [existingCategories]);
+
+    const colorOptions = useMemo(() => {
+        const fromDb = existingColors.map((c) => (c || '').toLowerCase()).filter(Boolean);
+        return [...new Set([...DEFAULT_COLORS, ...fromDb])].sort();
+    }, [existingColors]);
+
+    const diameterOptions = useMemo(() => {
+        const fromDb = existingDiameters.map((d) => (d || '').toLowerCase()).filter(Boolean);
+        return [...new Set([...DEFAULT_DIAMETERS, ...fromDb])].sort();
+    }, [existingDiameters]);
+
+    const materialOptions = useMemo(() => {
+        const fromDb = existingMaterials.map((m) => (m || '').toLowerCase()).filter(Boolean);
+        return [...new Set([...DEFAULT_MATERIALS, ...fromDb])].sort();
+    }, [existingMaterials]);
+
+    const minusOptions = useMemo(() => {
+        const fromDb = existingMinuses.map((m) => (m || '').toLowerCase()).filter(Boolean);
+        return [...new Set([...DEFAULT_MINUSES, ...fromDb])];
+    }, [existingMinuses]);
 
     return (
         <SidebarLayout title={isEdit ? 'Edit Produk' : 'Tambah Produk'}>
@@ -224,9 +304,71 @@ export default function ProdukCreate({
                             className="w-full"
                         />
                         <p className="mt-1 text-xs text-slate-500">
-                            Pilih dari riwayat atau ketik baru — tersimpan otomatis huruf kecil.
+                            {data.kategori_produk
+                                ? `Menampilkan brand yang pernah dipakai untuk kategori "${data.kategori_produk}" — ketik baru kalau belum ada.`
+                                : 'Pilih kategori dulu supaya saran brand lebih relevan, atau ketik baru — tersimpan otomatis huruf kecil.'}
                         </p>
                     </Field>
+
+                    {(isKacamata || isSoflen) && (
+                        <Field label="Warna" error={errors.warna_produk}>
+                            <FilterCombobox
+                                value={data.warna_produk}
+                                onChange={(v) => setData('warna_produk', v)}
+                                options={colorOptions}
+                                placeholder="hitam, coklat, tortoise..."
+                                className="w-full"
+                            />
+                            <p className="mt-1 text-xs text-slate-500">
+                                Pilih warna dasar atau ketik warna baru (mis. &ldquo;merah maroon&rdquo;) — otomatis tersimpan sebagai pilihan baru.
+                            </p>
+                        </Field>
+                    )}
+
+                    {isSoflen && (
+                        <Field label="Diameter (mm)" error={errors.diameter_produk}>
+                            <FilterCombobox
+                                value={data.diameter_produk}
+                                onChange={(v) => setData('diameter_produk', v)}
+                                options={diameterOptions}
+                                placeholder="14.0, 14.2, 14.5..."
+                                className="w-full"
+                            />
+                            <p className="mt-1 text-xs text-slate-500">
+                                Pilih ukuran diameter yang sudah ada atau ketik ukuran baru — otomatis tersimpan sebagai pilihan baru.
+                            </p>
+                        </Field>
+                    )}
+
+                    {isKacamata && (
+                        <Field label="Bahan Frame" error={errors.bahan_produk}>
+                            <FilterCombobox
+                                value={data.bahan_produk}
+                                onChange={(v) => setData('bahan_produk', v)}
+                                options={materialOptions}
+                                placeholder="plastik, besi..."
+                                className="w-full"
+                            />
+                            <p className="mt-1 text-xs text-slate-500">
+                                Pilih bahan yang sudah ada atau ketik bahan baru (mis. &ldquo;titanium&rdquo;) — otomatis tersimpan sebagai pilihan baru.
+                            </p>
+                        </Field>
+                    )}
+
+                    {isSoflen && (
+                        <Field label="Minus / Plus" error={errors.minus_produk}>
+                            <FilterCombobox
+                                value={data.minus_produk}
+                                onChange={(v) => setData('minus_produk', v)}
+                                options={minusOptions}
+                                placeholder="plano, -1.00, +0.50..."
+                                className="w-full"
+                            />
+                            <p className="mt-1 text-xs text-slate-500">
+                                Pilih ukuran minus/plus yang sudah ada atau ketik ukuran baru — otomatis tersimpan sebagai pilihan baru.
+                            </p>
+                        </Field>
+                    )}
 
                     <Field label="Jumlah / Stok" error={errors.jumlah_produk}>
                         <input
@@ -235,20 +377,16 @@ export default function ProdukCreate({
                             step="1"
                             inputMode="numeric"
                             value={data.jumlah_produk}
-                            onChange={(e) => setData('jumlah_produk', e.target.value)}
+                            onChange={(e) => setData('jumlah_produk', e.target.value === '' ? '' : parseInt(e.target.value, 10) || 0)}
                             className="h-11 w-full rounded-lg border-gray-300"
                         />
                     </Field>
 
                     <Field label="Harga" error={errors.harga_produk}>
-                        <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            inputMode="numeric"
+                        <MoneyInput
                             value={data.harga_produk}
-                            onChange={(e) => setData('harga_produk', e.target.value)}
-                            className="h-11 w-full rounded-lg border-gray-300"
+                            onChange={(v) => setData('harga_produk', v)}
+                            error={errors.harga_produk}
                         />
                     </Field>
 
@@ -365,7 +503,7 @@ export default function ProdukCreate({
                             className="block w-full text-sm"
                         />
                         <p className="mt-1 text-xs text-gray-400">
-                            Format: JPG, PNG, GIF, WebP, BMP, AVIF · Maks 10 MB
+                            Format: JPG, PNG, GIF, WebP, BMP, AVIF · Maks 20 MB (otomatis dikompres)
                         </p>
                         {isEdit && produk.gambar_produk && (
                             <img
@@ -385,7 +523,7 @@ export default function ProdukCreate({
                             className="block w-full text-sm"
                         />
                         <p className="mt-1 text-xs text-gray-400">
-                            Format: JPG, PNG, GIF, WebP, BMP, AVIF · Maks 10 MB per foto. Foto tampil sebagai galeri pada detail produk.
+                            Format: JPG, PNG, GIF, WebP, BMP, AVIF · Maks 20 MB (otomatis dikompres) per foto. Foto tampil sebagai galeri pada detail produk.
                         </p>
                     </Field>
                 </div>
@@ -444,6 +582,16 @@ export default function ProdukCreate({
                     </section>
                 )}
             </form>
+
+            <ConfirmDialog
+                open={showFrameConfirm}
+                onCancel={() => setShowFrameConfirm(false)}
+                onConfirm={confirmSubmitWithoutFrame}
+                title="Ukuran frame kacamata kosong"
+                description="Ukuran frame kacamata tidak diisi. Apakah Anda yakin ingin menyimpan produk ini tanpa ukuran frame?"
+                cancelText="Kembali, Isi Dulu"
+                confirmText="Ya, Simpan"
+            />
         </SidebarLayout>
     );
 }

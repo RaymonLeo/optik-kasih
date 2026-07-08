@@ -1,4 +1,4 @@
-// appV1.0 Rev 4 - Kategori filter: defaults selalu ada + otomatis tambah dari DB.
+// appV1.0 Rev 7 - Klik card buka drawer detail (dengan Edit/Hapus); hapus outline kuning stok rendah, hover-only lift+outline.
 
 import SidebarLayout from '@/Components/SidebarLayout';
 import { Link, router, usePage } from '@inertiajs/react';
@@ -6,6 +6,13 @@ import { Edit, Filter, PackagePlus, Search, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 const DEFAULT_CATEGORIES = ['kacamata', 'soflen', 'air soflen', 'produk lainnya'];
+const DEFAULT_COLORS = ['hitam', 'putih', 'coklat', 'abu-abu', 'tortoise/motif', 'emas', 'perak', 'merah', 'biru', 'hijau', 'kuning', 'bening'];
+const DEFAULT_DIAMETERS = ['13.8', '14.0', '14.2', '14.5'];
+const DEFAULT_MATERIALS = ['plastik', 'besi'];
+const DEFAULT_MINUSES = [
+    'plano', '-0.50', '-1.00', '-1.50', '-2.00', '-2.50', '-3.00', '-3.50', '-4.00', '-4.50', '-5.00', '-5.50', '-6.00',
+    '+0.50', '+1.00', '+1.50', '+2.00',
+];
 
 const money  = (value) => Number(value || 0).toLocaleString('id-ID');
 const today  = new Date().toISOString().slice(0, 10);
@@ -87,26 +94,54 @@ function BannerBlock({ items, type, userId, title, subtitle, borderClass, bgClas
 export default function ProdukIndex() {
     const { props } = usePage();
     const {
-        products, categories = [], filters = {}, routeBase = 'admin.produk',
+        products, categories = [], colors = [], diameters = [], materials = [], minuses = [], filters = {}, routeBase = 'admin.produk',
         lowStockAlerts = [], outOfStockAlerts = [], expiringAlerts = [],
     } = props;
     const userId = props.auth?.user?.id;
 
     const [search,      setSearch]      = useState(filters.search  || '');
     const [category,    setCategory]    = useState(toArr(filters.category));
+    const [warna,       setWarna]       = useState(toArr(filters.warna));
+    const [diameter,    setDiameter]    = useState(toArr(filters.diameter));
+    const [bahan,       setBahan]       = useState(toArr(filters.bahan));
+    const [minus,       setMinus]       = useState(toArr(filters.minus));
     const [habis,       setHabis]       = useState(!!filters.habis);
-    const [showFilter,  setShowFilter]  = useState(toArr(filters.category).length > 0);
+    const [selectedProduct, setSelectedProduct] = useState(null);
+    const [showFilter,  setShowFilter]  = useState(
+        toArr(filters.category).length > 0 || toArr(filters.warna).length > 0 || toArr(filters.diameter).length > 0
+        || toArr(filters.bahan).length > 0 || toArr(filters.minus).length > 0
+    );
 
     const allCategories = useMemo(() => {
         const fromDb = categories.map((c) => String(c || '').toLowerCase()).filter(Boolean);
         return [...new Set([...DEFAULT_CATEGORIES, ...fromDb])].sort();
     }, [categories]);
 
+    const allColors = useMemo(() => {
+        const fromDb = colors.map((c) => String(c || '').toLowerCase()).filter(Boolean);
+        return [...new Set([...DEFAULT_COLORS, ...fromDb])].sort();
+    }, [colors]);
+
+    const allDiameters = useMemo(() => {
+        const fromDb = diameters.map((d) => String(d || '').toLowerCase()).filter(Boolean);
+        return [...new Set([...DEFAULT_DIAMETERS, ...fromDb])].sort();
+    }, [diameters]);
+
+    const allMaterials = useMemo(() => {
+        const fromDb = materials.map((m) => String(m || '').toLowerCase()).filter(Boolean);
+        return [...new Set([...DEFAULT_MATERIALS, ...fromDb])].sort();
+    }, [materials]);
+
+    const allMinuses = useMemo(() => {
+        const fromDb = minuses.map((m) => String(m || '').toLowerCase()).filter(Boolean);
+        return [...new Set([...DEFAULT_MINUSES, ...fromDb])];
+    }, [minuses]);
+
     const nav = (params) =>
         router.get(route(`${routeBase}.index`), params, { preserveState: true, replace: true });
 
     const apply = (overrides = {}) => {
-        const params = { search, category, habis: habis ? '1' : '', ...overrides };
+        const params = { search, category, warna, diameter, bahan, minus, habis: habis ? '1' : '', ...overrides };
         if (!params.habis) delete params.habis;
         nav(params);
     };
@@ -114,15 +149,39 @@ export default function ProdukIndex() {
     const toggleCategory = (val) => {
         const next = category.includes(val) ? category.filter(v => v !== val) : [...category, val];
         setCategory(next);
-        nav({ search, category: next, habis: habis ? '1' : '' });
+        nav({ search, category: next, warna, diameter, bahan, minus, habis: habis ? '1' : '' });
+    };
+
+    const toggleWarna = (val) => {
+        const next = warna.includes(val) ? warna.filter(v => v !== val) : [...warna, val];
+        setWarna(next);
+        nav({ search, category, warna: next, diameter, bahan, minus, habis: habis ? '1' : '' });
+    };
+
+    const toggleDiameter = (val) => {
+        const next = diameter.includes(val) ? diameter.filter(v => v !== val) : [...diameter, val];
+        setDiameter(next);
+        nav({ search, category, warna, diameter: next, bahan, minus, habis: habis ? '1' : '' });
+    };
+
+    const toggleBahan = (val) => {
+        const next = bahan.includes(val) ? bahan.filter(v => v !== val) : [...bahan, val];
+        setBahan(next);
+        nav({ search, category, warna, diameter, bahan: next, minus, habis: habis ? '1' : '' });
+    };
+
+    const toggleMinus = (val) => {
+        const next = minus.includes(val) ? minus.filter(v => v !== val) : [...minus, val];
+        setMinus(next);
+        nav({ search, category, warna, diameter, bahan, minus: next, habis: habis ? '1' : '' });
     };
 
     const handleHabis = (val) => {
         setHabis(val);
-        nav({ search, category, habis: val ? '1' : '' });
+        nav({ search, category, warna, diameter, bahan, minus, habis: val ? '1' : '' });
     };
 
-    const totalActive = category.length + (habis ? 1 : 0);
+    const totalActive = category.length + warna.length + diameter.length + bahan.length + minus.length + (habis ? 1 : 0);
 
     return (
         <SidebarLayout title="Produk Cabang">
@@ -184,16 +243,16 @@ export default function ProdukIndex() {
                             type="button"
                             onClick={() => setShowFilter((f) => !f)}
                             className={`flex h-11 items-center gap-2 rounded-lg border px-4 text-sm font-semibold transition ${
-                                showFilter || category.length > 0
+                                showFilter || totalActive - (habis ? 1 : 0) > 0
                                     ? 'border-orange-400 bg-orange-50 text-orange-700'
                                     : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
                             }`}
                         >
                             <Filter className="h-4 w-4" />
                             Filter
-                            {category.length > 0 && (
+                            {(category.length + warna.length + diameter.length + bahan.length + minus.length) > 0 && (
                                 <span className="rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                                    {category.length}
+                                    {category.length + warna.length + diameter.length + bahan.length + minus.length}
                                 </span>
                             )}
                         </button>
@@ -224,7 +283,7 @@ export default function ProdukIndex() {
                         {(search || totalActive > 0) && (
                             <button type="button"
                                 className="h-11 rounded-lg border border-gray-200 px-4 text-sm font-semibold text-gray-600 hover:bg-gray-50"
-                                onClick={() => { setSearch(''); setCategory([]); setHabis(false); nav({}); }}>
+                                onClick={() => { setSearch(''); setCategory([]); setWarna([]); setDiameter([]); setBahan([]); setMinus([]); setHabis(false); nav({}); }}>
                                 Reset
                             </button>
                         )}
@@ -247,17 +306,65 @@ export default function ProdukIndex() {
                                     selected={category}
                                     onToggle={toggleCategory}
                                 />
+                                <CheckboxGroup
+                                    title="Warna"
+                                    options={allColors}
+                                    selected={warna}
+                                    onToggle={toggleWarna}
+                                />
+                                <CheckboxGroup
+                                    title="Diameter (Soflen)"
+                                    options={allDiameters}
+                                    selected={diameter}
+                                    onToggle={toggleDiameter}
+                                />
+                                <CheckboxGroup
+                                    title="Bahan (Kacamata)"
+                                    options={allMaterials}
+                                    selected={bahan}
+                                    onToggle={toggleBahan}
+                                />
+                                <CheckboxGroup
+                                    title="Minus / Plus (Soflen)"
+                                    options={allMinuses}
+                                    selected={minus}
+                                    onToggle={toggleMinus}
+                                />
                             </div>
                         </div>
                     )}
 
                     {/* Active filter chips */}
-                    {(category.length > 0 || habis) && (
+                    {(category.length > 0 || warna.length > 0 || diameter.length > 0 || bahan.length > 0 || minus.length > 0 || habis) && (
                         <div className="mt-3 flex flex-wrap gap-2">
                             {category.map((v) => (
-                                <span key={v} className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-800">
+                                <span key={`c-${v}`} className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-800">
                                     {v}
                                     <button type="button" onClick={() => toggleCategory(v)}><X className="h-3 w-3" /></button>
+                                </span>
+                            ))}
+                            {warna.map((v) => (
+                                <span key={`w-${v}`} className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-800">
+                                    {v}
+                                    <button type="button" onClick={() => toggleWarna(v)}><X className="h-3 w-3" /></button>
+                                </span>
+                            ))}
+                            {diameter.map((v) => (
+                                <span key={`d-${v}`} className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-800">
+                                    {v}
+                                    <button type="button" onClick={() => toggleDiameter(v)}><X className="h-3 w-3" /></button>
+                                </span>
+                            ))}
+                            {bahan.map((v) => (
+                                <span key={`b-${v}`} className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
+                                    {v}
+                                    <button type="button" onClick={() => toggleBahan(v)}><X className="h-3 w-3" /></button>
+                                </span>
+                            ))}
+                            {minus.map((v) => (
+                                <span key={`m-${v}`} className="inline-flex items-center gap-1 rounded-full bg-pink-100 px-3 py-1 text-xs font-semibold text-pink-800">
+                                    {v}
+                                    <button type="button" onClick={() => toggleMinus(v)}><X className="h-3 w-3" /></button>
                                 </span>
                             ))}
                             {habis && (
@@ -279,72 +386,84 @@ export default function ProdukIndex() {
 
                         return (
                             <article key={product.id}
-                                className={`overflow-hidden rounded-xl border bg-white shadow-sm transition hover:shadow-md ${
+                                className={`overflow-hidden rounded-xl border bg-white shadow-sm transition hover:-translate-y-1 hover:border-orange-300 hover:shadow-lg ${
                                     isHabis   ? 'border-red-200'
-                                    : isLow   ? 'border-amber-200'
                                     : isExpired ? 'border-red-300'
                                     : 'border-gray-200'
                                 }`}>
-                                <div className="relative aspect-[4/3] bg-gray-100">
-                                    {product.gambar_produk ? (
-                                        <img
-                                            src={`/storage/${product.gambar_produk}`}
-                                            alt={product.nama_produk}
-                                            className="h-full w-full object-cover"
-                                        />
-                                    ) : (
-                                        <div className="flex h-full w-full items-center justify-center text-gray-400">
-                                            Tidak ada gambar
-                                        </div>
-                                    )}
-                                    {(isHabis || isExpired) && (
-                                        <div className="absolute inset-0 flex items-start justify-end gap-1 p-2">
-                                            {isHabis && (
-                                                <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase text-white shadow">
-                                                    HABIS
-                                                </span>
-                                            )}
-                                            {isExpired && (
-                                                <span className="rounded-full bg-red-700 px-2 py-0.5 text-[10px] font-bold uppercase text-white shadow">
-                                                    KADALUARSA
-                                                </span>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="p-4">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="min-w-0">
-                                            <h3 className="truncate text-lg font-bold text-gray-900">{product.nama_produk}</h3>
-                                            <p className="mt-0.5 text-sm text-gray-500">{product.kategori_produk}</p>
-                                        </div>
-                                        <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
-                                            isHabis ? 'bg-red-100 text-red-700'
-                                            : isLow ? 'bg-amber-100 text-amber-700'
-                                            : 'bg-orange-50 text-orange-700'
-                                        }`}>
-                                            Stok {product.jumlah_produk}
-                                        </span>
+                                <button type="button" onClick={() => setSelectedProduct(product)} className="block w-full text-left">
+                                    <div className="relative aspect-[4/3] bg-gray-100">
+                                        {product.gambar_produk ? (
+                                            <img
+                                                src={`/storage/${product.gambar_produk}`}
+                                                alt={product.nama_produk}
+                                                className="h-full w-full object-cover"
+                                            />
+                                        ) : (
+                                            <div className="flex h-full w-full items-center justify-center text-gray-400">
+                                                Tidak ada gambar
+                                            </div>
+                                        )}
+                                        {(isHabis || isExpired) && (
+                                            <div className="absolute inset-0 flex items-start justify-end gap-1 p-2">
+                                                {isHabis && (
+                                                    <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase text-white shadow">
+                                                        HABIS
+                                                    </span>
+                                                )}
+                                                {isExpired && (
+                                                    <span className="rounded-full bg-red-700 px-2 py-0.5 text-[10px] font-bold uppercase text-white shadow">
+                                                        KADALUARSA
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
-                                    <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                                        <div>
-                                            <p className="text-gray-500">Harga</p>
-                                            <p className="font-bold text-gray-900">Rp {money(product.harga_produk)}</p>
+                                    <div className="p-4">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <h3 className="truncate text-lg font-bold text-gray-900">{product.nama_produk}</h3>
+                                                <p className="mt-0.5 text-sm text-gray-500">
+                                                    {product.kategori_produk}
+                                                    {product.warna_produk && <> · {product.warna_produk}</>}
+                                                    {product.diameter_produk && <> · Ø{product.diameter_produk}</>}
+                                                    {product.bahan_produk && <> · {product.bahan_produk}</>}
+                                                    {product.minus_produk && <> · {product.minus_produk}</>}
+                                                </p>
+                                            </div>
+                                            <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
+                                                isHabis ? 'bg-red-100 text-red-700'
+                                                : isLow ? 'bg-amber-100 text-amber-700'
+                                                : 'bg-orange-50 text-orange-700'
+                                            }`}>
+                                                Stok {product.jumlah_produk}
+                                            </span>
                                         </div>
-                                        <div>
-                                            <p className="text-gray-500">Tanggal Masuk</p>
-                                            <p className="font-bold text-gray-900">{product.tanggal_masuk || '-'}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-gray-500">Expired</p>
-                                            <p className={`font-bold ${isExpired ? 'text-red-600' : isExpiring ? 'text-orange-600' : 'text-gray-900'}`}>
-                                                {product.expired_produk || '-'}
-                                                {isExpired && ' ⚠'}
-                                                {isExpiring && !isExpired && ' (segera)'}
-                                            </p>
+                                        <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                                            <div>
+                                                <p className="text-gray-500">Harga</p>
+                                                <p className="font-bold text-gray-900">Rp {money(product.harga_produk)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-500">Tanggal Masuk</p>
+                                                <p className="font-bold text-gray-900">{product.tanggal_masuk || '-'}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-500">Expired</p>
+                                                <p className={`font-bold ${isExpired ? 'text-red-600' : isExpiring ? 'text-orange-600' : 'text-gray-900'}`}>
+                                                    {product.expired_produk || '-'}
+                                                    {isExpired && ' ⚠'}
+                                                    {isExpiring && !isExpired && ' (segera)'}
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="mt-5 flex justify-end gap-2">
+                                </button>
+                                <div className="flex items-center justify-between gap-2 border-t border-gray-100 px-4 py-3">
+                                    <button type="button" onClick={() => setSelectedProduct(product)} className="text-sm font-semibold text-gray-600 hover:text-orange-700">
+                                        Lihat Detail
+                                    </button>
+                                    <div className="flex gap-2">
                                         <Link
                                             href={route(`${routeBase}.edit`, product.id)}
                                             className="inline-flex items-center gap-1 rounded-lg bg-violet-100 px-3 py-2 text-sm font-semibold text-violet-700"
@@ -385,6 +504,71 @@ export default function ProdukIndex() {
                     ))}
                 </div>
             </div>
+
+            {selectedProduct && (
+                <div className="fixed inset-0 z-[60] flex justify-end bg-slate-950/45 p-0 sm:p-4" onClick={() => setSelectedProduct(null)}>
+                    <aside className="h-full w-full max-w-xl overflow-y-auto rounded-none bg-white shadow-2xl sm:rounded-lg" onClick={(event) => event.stopPropagation()}>
+                        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-5 py-4">
+                            <h3 className="text-lg font-extrabold text-gray-900">Detail Produk</h3>
+                            <button onClick={() => setSelectedProduct(null)} className="rounded-lg border border-gray-200 p-2 text-gray-600 hover:bg-gray-50">
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <div className="p-5">
+                            <div className="aspect-[4/3] overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
+                                {selectedProduct.gambar_produk ? (
+                                    <img src={`/storage/${selectedProduct.gambar_produk}`} alt={selectedProduct.nama_produk} className="h-full w-full object-cover" />
+                                ) : (
+                                    <div className="flex h-full w-full items-center justify-center text-gray-400">Tidak ada gambar</div>
+                                )}
+                            </div>
+
+                            <h2 className="mt-5 text-2xl font-extrabold text-gray-900">{selectedProduct.nama_produk}</h2>
+                            <p className="mt-1 text-sm font-bold text-orange-700">{selectedProduct.kategori_produk}</p>
+
+                            {selectedProduct.deskripsi_produk && (
+                                <p className="mt-3 text-sm leading-6 text-gray-600">{selectedProduct.deskripsi_produk}</p>
+                            )}
+
+                            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                                {[
+                                    ['Harga', `Rp ${money(selectedProduct.harga_produk)}`],
+                                    ['Stok', selectedProduct.jumlah_produk ?? 0],
+                                    selectedProduct.warna_produk && ['Warna', selectedProduct.warna_produk],
+                                    selectedProduct.bahan_produk && ['Bahan', selectedProduct.bahan_produk],
+                                    selectedProduct.diameter_produk && ['Diameter', selectedProduct.diameter_produk],
+                                    selectedProduct.minus_produk && ['Minus / Plus', selectedProduct.minus_produk],
+                                    ['Tanggal Masuk', selectedProduct.tanggal_masuk || '-'],
+                                    ['Expired Produk', selectedProduct.expired_produk || '-'],
+                                ].filter(Boolean).map(([label, value]) => (
+                                    <div key={label} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                        <p className="text-xs font-bold uppercase tracking-wide text-gray-500">{label}</p>
+                                        <p className="mt-2 text-base font-extrabold text-gray-900">{value}</p>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="mt-6 flex gap-3">
+                                <Link href={route(`${routeBase}.edit`, selectedProduct.id)} className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-orange-600 px-4 text-sm font-bold text-white hover:bg-orange-700">
+                                    <Edit className="h-4 w-4" /> Edit Produk
+                                </Link>
+                                <button
+                                    onClick={() => {
+                                        if (confirm('Hapus produk ini?')) {
+                                            router.delete(route(`${routeBase}.destroy`, selectedProduct.id), { preserveScroll: true });
+                                            setSelectedProduct(null);
+                                        }
+                                    }}
+                                    className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-red-200 px-4 text-sm font-bold text-red-600 hover:bg-red-50"
+                                >
+                                    <Trash2 className="h-4 w-4" /> Hapus
+                                </button>
+                            </div>
+                        </div>
+                    </aside>
+                </div>
+            )}
         </SidebarLayout>
     );
 }

@@ -1,11 +1,12 @@
 <?php
-// appV1.0 Rev 9 - Wrap log dalam try-catch; tambah stockAlerts untuk notifikasi stok habis.
+// appV1.0 Rev 10 - Naikkan batas upload ke 20 MB dan otomatis kompres gambar lensa (samakan dengan produk).
 
 namespace App\Http\Controllers;
 
 use App\Models\Lensa;
 use App\Models\User;
 use App\Models\ActivityLog;
+use App\Services\ImageCompressor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -116,7 +117,7 @@ class LensaController extends Controller
         ]);
 
         if ($r->hasFile('gambar_lensa')) {
-            $data['gambar_lensa'] = $r->file('gambar_lensa')->store('lensa', 'public');
+            $data['gambar_lensa'] = ImageCompressor::store($r->file('gambar_lensa'), 'lensa', 'public');
         } else {
             unset($data['gambar_lensa']);
         }
@@ -134,7 +135,7 @@ class LensaController extends Controller
         $data = $this->validated($r, true);
 
         if ($r->hasFile('gambar_lensa')) {
-            $data['gambar_lensa'] = $r->file('gambar_lensa')->store('lensa', 'public');
+            $data['gambar_lensa'] = ImageCompressor::store($r->file('gambar_lensa'), 'lensa', 'public');
         } else {
             unset($data['gambar_lensa']);
         }
@@ -182,7 +183,7 @@ class LensaController extends Controller
 
         if ($r->hasFile('gambar_lensa')) {
             if ($lensa->gambar_lensa) Storage::disk('public')->delete($lensa->gambar_lensa);
-            $data['gambar_lensa'] = $r->file('gambar_lensa')->store('lensa', 'public');
+            $data['gambar_lensa'] = ImageCompressor::store($r->file('gambar_lensa'), 'lensa', 'public');
         } else {
             // Don't overwrite existing image when no new file uploaded
             unset($data['gambar_lensa']);
@@ -200,7 +201,7 @@ class LensaController extends Controller
 
         if ($r->hasFile('gambar_lensa')) {
             if ($lensa->gambar_lensa) Storage::disk('public')->delete($lensa->gambar_lensa);
-            $data['gambar_lensa'] = $r->file('gambar_lensa')->store('lensa', 'public');
+            $data['gambar_lensa'] = ImageCompressor::store($r->file('gambar_lensa'), 'lensa', 'public');
         } else {
             unset($data['gambar_lensa']);
         }
@@ -300,7 +301,7 @@ class LensaController extends Controller
             'stok_lensa'    => ['nullable', 'integer', 'min:0'],
             'deskripsi'     => ['nullable', 'string'],
             'tanggal_masuk' => ['nullable', 'date'],
-            'gambar_lensa'  => ['nullable', 'file', 'mimes:jpg,jpeg,png,gif,webp,bmp,avif', 'max:10240'],
+            'gambar_lensa'  => ['nullable', 'file', 'mimes:jpg,jpeg,png,gif,webp,bmp,avif', 'max:20480'],
             'sph_lensa'     => ['nullable', 'string', 'max:20'],
             'cyl_lensa'     => ['nullable', 'string', 'max:20'],
             'axis_lensa'    => ['nullable', 'string', 'max:20'],

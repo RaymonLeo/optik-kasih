@@ -1,4 +1,4 @@
-// appV1.0 Rev 4 - Pengaturan galeri dan tiga foto pilihan carousel halaman cabang.
+// appV1.0 Rev 5 - Fix bug: sort_order dengan angka nol di depan (mis. "07") gagal validasi integer.
 
 import SidebarLayout from '@/Components/SidebarLayout';
 import { Head, Link, router, useForm } from '@inertiajs/react';
@@ -100,7 +100,7 @@ export default function BranchGallery({ branch, photos = [], isSuperAdminView = 
                         </label>
                         <label className="block text-sm font-semibold text-slate-700">
                             Urutan carousel
-                            <input type="number" min="0" max="99" value={data.sort_order} onChange={(event) => setData('sort_order', event.target.value)} className="mt-1 h-10 w-full rounded-lg border-slate-300" />
+                            <input type="number" min="0" max="99" value={data.sort_order} onChange={(event) => setData('sort_order', event.target.value === '' ? '' : parseInt(event.target.value, 10) || 0)} className="mt-1 h-10 w-full rounded-lg border-slate-300" />
                         </label>
                         <div className="md:col-span-2">
                             <button disabled={processing} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#E56020] px-4 text-sm font-bold text-white disabled:opacity-60">

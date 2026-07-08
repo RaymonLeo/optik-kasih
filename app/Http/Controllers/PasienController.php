@@ -1,6 +1,6 @@
 <?php
 
-// appV1.0 Rev 9 - Auto-format: kode 7-digit, nama/alamat title case, nohp min 8 digit.
+// appV1.0 Rev 10 - Auto-format kode_pasien juga diterapkan saat input manual (Tambah & Edit), bukan cuma saat import.
 
 namespace App\Http\Controllers;
 
@@ -67,13 +67,23 @@ class PasienController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'kode_pasien'   => 'required|string|max:20|unique:pasien,kode_pasien',
+            'kode_pasien'   => 'required|string|max:20',
             'nama_pasien'   => 'required|string|max:255',
             'tanggal_buat'  => 'required|date',
             'alamat_pasien' => 'required|string',
             'nohp_pasien'   => ['required', 'regex:/^\d{8,15}$/'],
             'tanggal_lahir' => 'nullable|date',
         ]);
+
+        // Samakan panjang kode_pasien dengan hasil import (huruf depan + 7 digit),
+        // supaya "1", "2", "3" dsb otomatis jadi sepanjang kode yang lain.
+        $data['kode_pasien'] = $this->buildKodePasien($data['kode_pasien'], $data['nama_pasien']);
+
+        if (Pasien::where('kode_pasien', $data['kode_pasien'])->exists()) {
+            return back()
+                ->withErrors(['kode_pasien' => "Kode pasien sudah dipakai (setelah diformat menjadi \"{$data['kode_pasien']}\"). Gunakan kode lain."])
+                ->withInput();
+        }
 
         $pasien = Pasien::create($data);
         $this->log('create', $pasien, ['snapshot' => $this->patientSnapshot($pasien)]);
@@ -145,7 +155,7 @@ class PasienController extends Controller
     public function update(Request $request, Pasien $pasien)
     {
         $rules = [
-            'kode_pasien'   => 'required|string|max:20|unique:pasien,kode_pasien,' . $pasien->id,
+            'kode_pasien'   => 'required|string|max:20',
             'nama_pasien'   => 'required|string|max:255',
             'tanggal_buat'  => 'nullable|date',
             'alamat_pasien' => 'nullable|string',
@@ -159,6 +169,17 @@ class PasienController extends Controller
         $data = $request->validate($rules);
         $reason = $data['change_reason'] ?? null;
         unset($data['change_reason']);
+
+        // Samakan panjang kode_pasien dengan hasil import (huruf depan + 7 digit).
+        // Kode yang sudah terformat (mis. "R0041623") tidak berubah saat diproses ulang.
+        $data['kode_pasien'] = $this->buildKodePasien($data['kode_pasien'], $data['nama_pasien']);
+
+        if (Pasien::where('kode_pasien', $data['kode_pasien'])->where('id', '!=', $pasien->id)->exists()) {
+            return back()
+                ->withErrors(['kode_pasien' => "Kode pasien sudah dipakai (setelah diformat menjadi \"{$data['kode_pasien']}\"). Gunakan kode lain."])
+                ->withInput();
+        }
+
         $before = $this->patientSnapshot($pasien);
 
         $pasien->update($data);

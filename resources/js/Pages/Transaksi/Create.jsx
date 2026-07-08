@@ -1,4 +1,4 @@
-// appV1.0 Rev 3 - Fix focus loss: move MoneyInput, StatusBadge, RowRX, TabBtn outside Create.
+// appV1.0 Rev 5 - Fix bug: qty item manual dengan angka nol di depan bisa tersimpan salah.
 
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useForm, usePage } from "@inertiajs/react";
@@ -545,11 +545,11 @@ export default function Create({ mode = "create", prefill = null }) {
                       </td>
                       <td className="px-2 py-2">
                         <input type="number" min="1" className="h-10 w-20 rounded border px-2" value={it.qty}
-                          onChange={e => { const items = [...data.items]; items[idx].qty = e.target.value; setData("items", items); }} />
+                          onChange={e => { const items = [...data.items]; items[idx].qty = e.target.value === '' ? '' : parseInt(e.target.value, 10) || 1; setData("items", items); }} />
                       </td>
                       <td className="px-2 py-2">
-                        <input type="number" className="h-10 w-36 rounded border px-2" value={it.harga}
-                          onChange={e => { const items = [...data.items]; items[idx].harga = e.target.value; setData("items", items); }} />
+                        <MoneyInput value={it.harga}
+                          onChange={v => { const items = [...data.items]; items[idx].harga = v; setData("items", items); }} />
                       </td>
                       <td className="px-2 py-2 text-right">{subtotal.toLocaleString("id-ID")}</td>
                       <td className="px-2 py-2 text-right">

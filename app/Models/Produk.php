@@ -1,6 +1,6 @@
 <?php
 
-// appV1.0 Rev 7 - Tambah brand_produk ke fillable untuk merek produk.
+// appV1.0 Rev 10 - Format cast tanggal jadi Y-m-d supaya JSON tidak keluar sebagai ISO datetime mentah.
 
 namespace App\Models;
 
@@ -16,6 +16,10 @@ class Produk extends Model
         'nama_produk',
         'kategori_produk',
         'brand_produk',
+        'warna_produk',
+        'diameter_produk',
+        'bahan_produk',
+        'minus_produk',
         'jumlah_produk',
         'harga_produk',
         'gambar_produk',
@@ -36,8 +40,8 @@ class Produk extends Model
     protected $casts = [
         'jumlah_produk' => 'integer',
         'harga_produk'  => 'decimal:2',
-        'tanggal_masuk'=> 'date',
-        'expired_produk'=> 'date',
+        'tanggal_masuk'=> 'date:Y-m-d',
+        'expired_produk'=> 'date:Y-m-d',
     ];
 
     public function transaksi(): HasMany

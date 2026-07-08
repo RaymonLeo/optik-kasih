@@ -1,9 +1,9 @@
-// appV1.0 Rev 6 - Multi-select checkbox filter (Shopee-style) untuk jenis/coating/indeks.
+// appV1.0 Rev 7 - Klik card buka drawer detail (Edit/Hapus); hapus outline kuning stok rendah, hover-only lift+outline.
 
 import React, { useEffect, useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import SidebarLayout from "@/Components/SidebarLayout";
-import { Filter, X } from "lucide-react";
+import { Edit, Filter, Trash2, X } from "lucide-react";
 
 const SPEC_FIELDS = ['SPH', 'CYL', 'AXIS', 'ADD', 'PRISM', 'BASE'];
 
@@ -63,6 +63,7 @@ export default function Index() {
     const { rows, query = {}, filterOptions = {}, stockAlerts = [] } = props;
     const userId = props.auth?.user?.id;
 
+    const [selectedLensa, setSelectedLensa] = useState(null);
     const [search,      setSearch]      = useState(query.search  || "");
     const [jenis,       setJenis]       = useState(toArr(query.jenis));
     const [coating,     setCoating]     = useState(toArr(query.coating));
@@ -297,13 +298,13 @@ export default function Index() {
 
                             return (
                                 <div key={card.id_lensa}
-                                    className={`rounded-xl border bg-white p-4 shadow-sm transition hover:shadow-md ${
-                                        isPesanan ? 'border-blue-200 hover:border-blue-300'
-                                        : isHabis ? 'border-red-200 hover:border-red-300'
-                                        : isLow   ? 'border-amber-200 hover:border-amber-300'
-                                        : 'border-slate-200 hover:border-orange-200'
+                                    className={`rounded-xl border bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-lg ${
+                                        isPesanan ? 'border-blue-200 hover:border-blue-400'
+                                        : isHabis ? 'border-red-200 hover:border-red-400'
+                                        : 'border-slate-200 hover:border-orange-300'
                                     }`}>
 
+                                <button type="button" onClick={() => setSelectedLensa(card)} className="block w-full text-left">
                                     {/* Header: gambar + info */}
                                     <div className="flex items-start gap-3">
                                         <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-gray-50">
@@ -385,6 +386,7 @@ export default function Index() {
                                         <div className="mb-1 text-xs font-semibold text-gray-500">Ukuran Lensa</div>
                                         <SpecBadges spec={card.spec} />
                                     </div>
+                                </button>
 
                                     {/* Aksi */}
                                     <div className="mt-3 flex justify-end gap-2">
@@ -418,6 +420,79 @@ export default function Index() {
                 </div>
 
             </div>
+
+            {selectedLensa && (
+                <div className="fixed inset-0 z-[60] flex justify-end bg-slate-950/45 p-0 sm:p-4" onClick={() => setSelectedLensa(null)}>
+                    <aside className="h-full w-full max-w-xl overflow-y-auto rounded-none bg-white shadow-2xl sm:rounded-lg" onClick={(event) => event.stopPropagation()}>
+                        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-5 py-4">
+                            <h3 className="text-lg font-extrabold text-gray-900">Detail Lensa</h3>
+                            <button onClick={() => setSelectedLensa(null)} className="rounded-lg border border-gray-200 p-2 text-gray-600 hover:bg-gray-50">
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <div className="p-5">
+                            <div className="aspect-[4/3] overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                                {selectedLensa.gambar_url ? (
+                                    <img src={selectedLensa.gambar_url} alt={selectedLensa.nama_lensa} className="h-full w-full object-cover" />
+                                ) : (
+                                    <div className="flex h-full w-full items-center justify-center text-4xl text-gray-300">🔍</div>
+                                )}
+                            </div>
+
+                            <h2 className="mt-5 text-2xl font-extrabold text-gray-900">{selectedLensa.nama_lensa || '—'}</h2>
+                            {selectedLensa.is_pesanan && selectedLensa.nama_pesanan && (
+                                <p className="mt-1 text-sm font-semibold text-blue-600">Pesan dari: {selectedLensa.nama_pesanan}</p>
+                            )}
+
+                            <div className="mt-3 flex flex-wrap gap-1.5">
+                                {selectedLensa.jenis_lensa && <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-800">{selectedLensa.jenis_lensa}</span>}
+                                {selectedLensa.coating_lensa && <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">{selectedLensa.coating_lensa}</span>}
+                                {selectedLensa.indeks_lensa && <span className="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-semibold text-violet-800">Indeks {selectedLensa.indeks_lensa}</span>}
+                            </div>
+
+                            {selectedLensa.deskripsi && (
+                                <p className="mt-3 text-sm leading-6 text-gray-600">{selectedLensa.deskripsi}</p>
+                            )}
+
+                            <div className="mt-5 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Ukuran Lensa</p>
+                                <SpecBadges spec={selectedLensa.spec} />
+                            </div>
+
+                            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                    <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Stok</p>
+                                    <p className="mt-2 text-base font-extrabold text-gray-900">
+                                        {selectedLensa.is_pesanan ? 'Lensa pesanan' : selectedLensa.stok_lensa ?? 0}
+                                    </p>
+                                </div>
+                                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                    <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Tanggal Masuk</p>
+                                    <p className="mt-2 text-base font-extrabold text-gray-900">{selectedLensa.tanggal_masuk || '-'}</p>
+                                </div>
+                            </div>
+
+                            <div className="mt-6 flex gap-3">
+                                <Link href={route('admin.lensa.edit', selectedLensa.id_lensa)} className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-orange-600 px-4 text-sm font-bold text-white hover:bg-orange-700">
+                                    <Edit className="h-4 w-4" /> Edit Lensa
+                                </Link>
+                                <button
+                                    onClick={() => {
+                                        if (confirm('Hapus lensa ini?')) {
+                                            router.delete(route('admin.lensa.destroy', selectedLensa.id_lensa));
+                                            setSelectedLensa(null);
+                                        }
+                                    }}
+                                    className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-red-200 px-4 text-sm font-bold text-red-600 hover:bg-red-50"
+                                >
+                                    <Trash2 className="h-4 w-4" /> Hapus
+                                </button>
+                            </div>
+                        </div>
+                    </aside>
+                </div>
+            )}
         </SidebarLayout>
     );
 }

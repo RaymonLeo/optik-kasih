@@ -1,6 +1,6 @@
 <?php
 
-// appV1.0 Rev 2 - Tambah status pembayaran, kacamata, pengambilan, kategori transaksi, dan split payment.
+// appV1.0 Rev 3 - Format cast tanggal jadi Y-m-d supaya JSON tidak keluar sebagai ISO datetime mentah.
 
 namespace App\Models;
 
@@ -22,9 +22,9 @@ class Transaksi extends Model
     ];
 
     protected $casts = [
-        'tanggal_pesan'   => 'date',
-        'tanggal_masuk'   => 'date',
-        'tanggal_selesai' => 'date',
+        'tanggal_pesan'   => 'date:Y-m-d',
+        'tanggal_masuk'   => 'date:Y-m-d',
+        'tanggal_selesai' => 'date:Y-m-d',
         'harga'           => 'decimal:2',
         'panjar'          => 'decimal:2',
         'sisa'            => 'decimal:2',

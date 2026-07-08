@@ -1,4 +1,4 @@
-// appV1.0 Rev 7 - Katalog publik dengan navbar fixed saat halaman digulir.
+// appV1.0 Rev 10 - Seluruh card (termasuk gambar) bisa diklik langsung ke detail produk.
 
 import { Head, Link, router } from '@inertiajs/react';
 import { ArrowLeft, ChevronDown, Filter, Glasses, MapPin, Search, SlidersHorizontal, Store, X } from 'lucide-react';
@@ -16,10 +16,14 @@ function ProductImage({ product }) {
     return <div className="flex h-full w-full items-center justify-center bg-[#e9f1ee] text-[#1f3b3d]"><Glasses className="h-14 w-14 opacity-35" /></div>;
 }
 
-export default function Catalog({ products, categories = [], branches = [], filters = {} }) {
+export default function Catalog({ products, categories = [], colors = [], diameters = [], materials = [], minuses = [], branches = [], filters = {} }) {
     const [search, setSearch] = useState(filters.search || '');
     const [branch, setBranch] = useState(filters.branch || '');
     const [category, setCategory] = useState(filters.category || '');
+    const [warna, setWarna] = useState(filters.warna || '');
+    const [diameter, setDiameter] = useState(filters.diameter || '');
+    const [bahan, setBahan] = useState(filters.bahan || '');
+    const [minus, setMinus] = useState(filters.minus || '');
     const [sort, setSort] = useState(filters.sort || 'latest');
     const [showMobileFilters, setShowMobileFilters] = useState(false);
 
@@ -32,6 +36,10 @@ export default function Catalog({ products, categories = [], branches = [], filt
         branch,
         search,
         category,
+        warna,
+        diameter,
+        bahan,
+        minus,
         sort,
     });
 
@@ -47,6 +55,10 @@ export default function Catalog({ products, categories = [], branches = [], filt
         setSearch('');
         setBranch(firstBranch);
         setCategory('');
+        setWarna('');
+        setDiameter('');
+        setBahan('');
+        setMinus('');
         setSort('latest');
         router.get(route('catalog'), { branch: firstBranch }, { preserveState: true, replace: true });
     };
@@ -74,6 +86,70 @@ export default function Catalog({ products, categories = [], branches = [], filt
                     ))}
                 </div>
             </div>
+
+            {colors.length > 0 && (
+                <div>
+                    <p className="text-sm font-bold text-slate-700">Warna</p>
+                    <div className="mt-2 space-y-1">
+                        <button type="button" onClick={() => setWarna('')} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-semibold ${warna === '' ? 'bg-[#1f3b3d] text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+                            Semua warna {warna === '' && <span>✓</span>}
+                        </button>
+                        {colors.map((item) => (
+                            <button key={item} type="button" onClick={() => setWarna(item)} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-semibold ${warna === item ? 'bg-[#e56020] text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+                                {item} {warna === item && <span>✓</span>}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {diameters.length > 0 && (
+                <div>
+                    <p className="text-sm font-bold text-slate-700">Diameter Soflen</p>
+                    <div className="mt-2 space-y-1">
+                        <button type="button" onClick={() => setDiameter('')} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-semibold ${diameter === '' ? 'bg-[#1f3b3d] text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+                            Semua diameter {diameter === '' && <span>✓</span>}
+                        </button>
+                        {diameters.map((item) => (
+                            <button key={item} type="button" onClick={() => setDiameter(item)} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-semibold ${diameter === item ? 'bg-[#e56020] text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+                                {item} {diameter === item && <span>✓</span>}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {materials.length > 0 && (
+                <div>
+                    <p className="text-sm font-bold text-slate-700">Bahan Frame</p>
+                    <div className="mt-2 space-y-1">
+                        <button type="button" onClick={() => setBahan('')} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-semibold ${bahan === '' ? 'bg-[#1f3b3d] text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+                            Semua bahan {bahan === '' && <span>✓</span>}
+                        </button>
+                        {materials.map((item) => (
+                            <button key={item} type="button" onClick={() => setBahan(item)} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-semibold ${bahan === item ? 'bg-[#e56020] text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+                                {item} {bahan === item && <span>✓</span>}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {minuses.length > 0 && (
+                <div>
+                    <p className="text-sm font-bold text-slate-700">Minus / Plus Soflen</p>
+                    <div className="mt-2 space-y-1">
+                        <button type="button" onClick={() => setMinus('')} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-semibold ${minus === '' ? 'bg-[#1f3b3d] text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+                            Semua ukuran {minus === '' && <span>✓</span>}
+                        </button>
+                        {minuses.map((item) => (
+                            <button key={item} type="button" onClick={() => setMinus(item)} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-semibold ${minus === item ? 'bg-[#e56020] text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+                                {item} {minus === item && <span>✓</span>}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
 
         </>
     );
@@ -149,14 +225,16 @@ export default function Catalog({ products, categories = [], branches = [], filt
                         {products.data.length > 0 ? (
                             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                                 {products.data.map((product) => (
-                                    <article key={product.id} className="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:border-orange-200 hover:shadow-lg">
-                                        <div className="relative aspect-[4/3] overflow-hidden bg-slate-100"><ProductImage product={product} /><span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-xs font-black text-[#e56020] shadow-sm">{product.kategori_produk}</span></div>
-                                        <div className="p-4">
-                                            <Link href={route('catalog.product.show', product.id)} className="line-clamp-2 min-h-12 text-base font-extrabold leading-6 text-[#1f3b3d] hover:text-[#e56020]">{product.nama_produk}</Link>
-                                            <p className="mt-3 line-clamp-2 min-h-10 text-sm leading-5 text-slate-600">{product.deskripsi_produk || 'Lihat detail produk dan hubungi cabang untuk informasi lebih lanjut.'}</p>
-                                            <div className="mt-3 flex items-center justify-between text-xs font-bold text-slate-500"><span className="inline-flex items-center gap-1"><Store className="h-3.5 w-3.5" /> {product.admin?.name || selectedBranch?.name}</span><span>Stok {product.jumlah_produk ?? 0}</span></div>
-                                            <Link href={route('catalog.product.show', product.id)} className="mt-4 inline-flex text-sm font-extrabold text-[#e56020] hover:underline">Lihat detail & WhatsApp</Link>
-                                        </div>
+                                    <article key={product.id}>
+                                        <Link href={route('catalog.product.show', product.id)} className="group block overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:border-orange-200 hover:shadow-lg">
+                                            <div className="relative aspect-[4/3] overflow-hidden bg-slate-100"><ProductImage product={product} /><span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-xs font-black text-[#e56020] shadow-sm">{product.kategori_produk}</span></div>
+                                            <div className="p-4">
+                                                <span className="line-clamp-2 block min-h-12 text-base font-extrabold leading-6 text-[#1f3b3d] group-hover:text-[#e56020]">{product.nama_produk}</span>
+                                                <p className="mt-3 line-clamp-2 min-h-10 text-sm leading-5 text-slate-600">{product.deskripsi_produk || 'Lihat detail produk dan hubungi cabang untuk informasi lebih lanjut.'}</p>
+                                                <div className="mt-3 flex items-center justify-between text-xs font-bold text-slate-500"><span className="inline-flex items-center gap-1"><Store className="h-3.5 w-3.5" /> {product.admin?.name || selectedBranch?.name}</span><span>Stok {product.jumlah_produk ?? 0}</span></div>
+                                                <span className="mt-4 inline-flex text-sm font-extrabold text-[#e56020] group-hover:underline">Lihat detail & WhatsApp</span>
+                                            </div>
+                                        </Link>
                                     </article>
                                 ))}
                             </div>

@@ -1,10 +1,8 @@
-// appV1.0 Rev 7 - Detail produk publik dengan navbar fixed saat halaman digulir.
+// appV1.0 Rev 8 - Sembunyikan tanggal produk masuk & expired dari pelanggan.
 
 import { Head, Link } from '@inertiajs/react';
-import { ArrowLeft, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Expand, Glasses, MapPin, MessageCircle, Store } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, Expand, Glasses, MapPin, MessageCircle, Store } from 'lucide-react';
 import { useMemo, useState } from 'react';
-
-const dateLabel = (value) => value ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'long' }).format(new Date(`${value}T00:00:00`)) : '-';
 
 export default function ProductShow({ product, branch }) {
     const [activeIndex, setActiveIndex] = useState(0);
@@ -66,8 +64,6 @@ export default function ProductShow({ product, branch }) {
 
                         <div className="mt-6 grid gap-3 sm:grid-cols-2">
                             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Ketersediaan</p><p className="mt-2 flex items-center gap-2 font-extrabold text-[#1f3b3d]"><CheckCircle2 className="h-5 w-5 text-emerald-600" /> {product.stock} unit</p></div>
-                            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Produk masuk</p><p className="mt-2 flex items-center gap-2 text-sm font-extrabold text-[#1f3b3d]"><CalendarDays className="h-4 w-4 text-[#e56020]" /> {dateLabel(product.date_added)}</p></div>
-                            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Expired</p><p className="mt-2 flex items-center gap-2 text-sm font-extrabold text-[#1f3b3d]"><Clock3 className="h-4 w-4 text-[#e56020]" /> {dateLabel(product.expiry_date)}</p></div>
                             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Cabang</p><p className="mt-2 flex items-center gap-2 text-sm font-extrabold text-[#1f3b3d]"><Store className="h-4 w-4 text-[#e56020]" /> {branch.name}</p></div>
                         </div>
 

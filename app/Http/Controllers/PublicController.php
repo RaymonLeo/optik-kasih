@@ -1,6 +1,6 @@
 <?php
 
-// appV1.0 Rev 7 - Tambah branch_map_link ke detail cabang publik.
+// appV1.0 Rev 10 - Sembunyikan tanggal masuk & expired produk dari halaman detail produk publik.
 
 namespace App\Http\Controllers;
 
@@ -42,12 +42,60 @@ class PublicController extends Controller
             $query->where('kategori_produk', $request->category);
         }
 
+        // Filter by color
+        if ($request->has('warna') && $request->warna != '') {
+            $query->where('warna_produk', $request->warna);
+        }
+
+        // Filter by diameter (soflen)
+        if ($request->has('diameter') && $request->diameter != '') {
+            $query->where('diameter_produk', $request->diameter);
+        }
+
+        // Filter by material (kacamata)
+        if ($request->has('bahan') && $request->bahan != '') {
+            $query->where('bahan_produk', $request->bahan);
+        }
+
+        // Filter by minus/plus (soflen)
+        if ($request->has('minus') && $request->minus != '') {
+            $query->where('minus_produk', $request->minus);
+        }
+
         $categories = (clone $baseQuery)
             ->select('kategori_produk')
             ->whereNotNull('kategori_produk')
             ->distinct()
             ->orderBy('kategori_produk')
             ->pluck('kategori_produk');
+
+        $colors = (clone $baseQuery)
+            ->select('warna_produk')
+            ->whereNotNull('warna_produk')
+            ->distinct()
+            ->orderBy('warna_produk')
+            ->pluck('warna_produk');
+
+        $diameters = (clone $baseQuery)
+            ->select('diameter_produk')
+            ->whereNotNull('diameter_produk')
+            ->distinct()
+            ->orderBy('diameter_produk')
+            ->pluck('diameter_produk');
+
+        $materials = (clone $baseQuery)
+            ->select('bahan_produk')
+            ->whereNotNull('bahan_produk')
+            ->distinct()
+            ->orderBy('bahan_produk')
+            ->pluck('bahan_produk');
+
+        $minuses = (clone $baseQuery)
+            ->select('minus_produk')
+            ->whereNotNull('minus_produk')
+            ->distinct()
+            ->orderBy('minus_produk')
+            ->pluck('minus_produk');
 
         $products = $query->latest()
             ->paginate(12)
@@ -58,11 +106,19 @@ class PublicController extends Controller
             'canLogin' => Route::has('login'),
             'products' => $products,
             'categories' => $categories,
+            'colors' => $colors,
+            'diameters' => $diameters,
+            'materials' => $materials,
+            'minuses' => $minuses,
             'branches' => $this->branchDetails($admins),
             'contact' => $this->contact(),
             'filters' => [
                 'search' => $request->get('search', ''),
                 'category' => $request->get('category', ''),
+                'warna' => $request->get('warna', ''),
+                'diameter' => $request->get('diameter', ''),
+                'bahan' => $request->get('bahan', ''),
+                'minus' => $request->get('minus', ''),
                 'branch' => $selectedBranchId ? (string) $selectedBranchId : '',
             ],
         ]);
@@ -90,6 +146,22 @@ class PublicController extends Controller
             $baseQuery->where('kategori_produk', $request->string('category')->toString());
         }
 
+        if ($request->filled('warna')) {
+            $baseQuery->where('warna_produk', $request->string('warna')->toString());
+        }
+
+        if ($request->filled('diameter')) {
+            $baseQuery->where('diameter_produk', $request->string('diameter')->toString());
+        }
+
+        if ($request->filled('bahan')) {
+            $baseQuery->where('bahan_produk', $request->string('bahan')->toString());
+        }
+
+        if ($request->filled('minus')) {
+            $baseQuery->where('minus_produk', $request->string('minus')->toString());
+        }
+
         $sort = $request->string('sort', 'latest')->toString();
         match ($sort) {
             'name_asc' => $baseQuery->orderBy('nama_produk'),
@@ -106,18 +178,46 @@ class PublicController extends Controller
                 ->paginate(24)
                 ->withQueryString()
                 ->through(fn (Produk $product) => $this->catalogProductPayload($product)),
-            'categories' => $categoryQuery
+            'categories' => (clone $categoryQuery)
                 ->whereNotNull('kategori_produk')
                 ->select('kategori_produk')
                 ->distinct()
                 ->orderBy('kategori_produk')
                 ->pluck('kategori_produk'),
+            'colors' => (clone $categoryQuery)
+                ->whereNotNull('warna_produk')
+                ->select('warna_produk')
+                ->distinct()
+                ->orderBy('warna_produk')
+                ->pluck('warna_produk'),
+            'diameters' => (clone $categoryQuery)
+                ->whereNotNull('diameter_produk')
+                ->select('diameter_produk')
+                ->distinct()
+                ->orderBy('diameter_produk')
+                ->pluck('diameter_produk'),
+            'materials' => (clone $categoryQuery)
+                ->whereNotNull('bahan_produk')
+                ->select('bahan_produk')
+                ->distinct()
+                ->orderBy('bahan_produk')
+                ->pluck('bahan_produk'),
+            'minuses' => (clone $categoryQuery)
+                ->whereNotNull('minus_produk')
+                ->select('minus_produk')
+                ->distinct()
+                ->orderBy('minus_produk')
+                ->pluck('minus_produk'),
             'branches' => $this->branchDetails($admins),
             'contact' => $this->contact(),
             'filters' => [
                 'branch' => $selectedBranchId ? (string) $selectedBranchId : '',
                 'search' => $request->get('search', ''),
                 'category' => $request->get('category', ''),
+                'warna' => $request->get('warna', ''),
+                'diameter' => $request->get('diameter', ''),
+                'bahan' => $request->get('bahan', ''),
+                'minus' => $request->get('minus', ''),
                 'sort' => $sort,
             ],
         ]);
@@ -144,10 +244,12 @@ class PublicController extends Controller
                 'id' => $produk->id,
                 'name' => $produk->nama_produk,
                 'category' => $produk->kategori_produk,
+                'warna' => $produk->warna_produk,
+                'diameter' => $produk->diameter_produk,
+                'bahan' => $produk->bahan_produk,
+                'minus' => $produk->minus_produk,
                 'description' => $produk->deskripsi_produk,
                 'stock' => $produk->jumlah_produk,
-                'date_added' => optional($produk->tanggal_masuk)->toDateString(),
-                'expiry_date' => optional($produk->expired_produk)->toDateString(),
                 'images' => $this->productImages($produk),
             ],
             'branch' => [
@@ -242,6 +344,10 @@ class PublicController extends Controller
             'id' => $product->id,
             'nama_produk' => $product->nama_produk,
             'kategori_produk' => $product->kategori_produk,
+            'warna_produk' => $product->warna_produk,
+            'diameter_produk' => $product->diameter_produk,
+            'bahan_produk' => $product->bahan_produk,
+            'minus_produk' => $product->minus_produk,
             'jumlah_produk' => $product->jumlah_produk,
             'gambar_produk' => $product->gambar_produk,
             'deskripsi_produk' => $product->deskripsi_produk,

@@ -1,4 +1,4 @@
-// appV1.0 Rev 6 - Status badges, filter by status/kategori, export Excel, pending kacamata widget.
+// appV1.0 Rev 7 - Klik baris transaksi langsung ke halaman detail (konsisten dengan daftar pasien).
 
 import React, { useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
@@ -212,7 +212,7 @@ export default function Index() {
             </thead>
             <tbody>
               {transactions.data.map((row) => (
-                <tr key={row.id} className="border-t hover:bg-orange-50/40">
+                <tr key={row.id} className="cursor-pointer border-t hover:bg-orange-50/40" onClick={() => router.visit(route("admin.transaksi.show", row.id))}>
                   <td className="px-4 py-3 font-semibold text-gray-700">#{row.kode}</td>
                   <td className="px-4 py-3 text-gray-600">{row.tanggal_pesanan}</td>
                   <td className="px-4 py-3">
@@ -243,7 +243,7 @@ export default function Index() {
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1.5">
                       <Link href={route("admin.transaksi.print_bon", row.id)}
                         className="rounded-lg bg-blue-50 p-2 text-blue-700 hover:bg-blue-100" title="Print Bon">🖨️</Link>

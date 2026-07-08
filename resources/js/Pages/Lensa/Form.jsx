@@ -1,4 +1,4 @@
-// appV1.0 Rev 4 - ComboboxSelect untuk SPH/CYL, SimpleSelect untuk AXIS/ADD/PRISM/BASE, dropdown nama/jenis/coating.
+// appV1.0 Rev 8 - Tambah Perfect Lens & Parfait ke default Nama Lensa (merek yang beredar di pasar lokal Indonesia).
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -13,6 +13,18 @@ const rangeStep = (from, to, step) => {
 };
 const fmtSigned = (n) => (n > 0 ? `+${n.toFixed(2)}` : n < 0 ? n.toFixed(2) : '0.00');
 const today     = () => new Date().toISOString().split('T')[0];
+
+const DEFAULT_JENIS = ['Single Vision', 'Bifokal', 'Trifokal', 'Progressive'];
+const DEFAULT_COATING = [
+    'Anti-Reflektif', 'Blue Ray', 'Photochromic', 'Bluechromic', 'UV Protection',
+    'Hydrophobic', 'Anti Gores', 'Polarized', 'Hard Coat', 'Mirror Coating',
+];
+const DEFAULT_NAMA = [
+    'Essilor', 'Crizal', 'Varilux', 'Transitions', 'Zeiss', 'Hoya', 'Rodenstock',
+    'Nikon Lenswear', 'Kodak Lens', 'Chemi Lens', 'Perfect Lens', 'Parfait',
+];
+
+const mergeOptions = (defaults, fromDb) => [...new Set([...defaults, ...fromDb.filter(Boolean)])];
 
 const NUMERIC_RE = /^[+-]?\d*\.?\d*$/;
 
@@ -157,6 +169,10 @@ export default function Form({
 }) {
     const isEdit = mode === "edit";
 
+    const jenisOptions   = useMemo(() => mergeOptions(DEFAULT_JENIS, existingJenis), [existingJenis]);
+    const coatingOptions = useMemo(() => mergeOptions(DEFAULT_COATING, existingCoating), [existingCoating]);
+    const namaOptions    = useMemo(() => mergeOptions(DEFAULT_NAMA, existingNama), [existingNama]);
+
     const sphCylOptions = useMemo(
         () => rangeStep(-30, 30, 0.25).map((n) => ({ value: n.toFixed(2), label: fmtSigned(n) })),
         [],
@@ -230,7 +246,7 @@ export default function Form({
                             onChange={(e) => setData("nama_lensa", e.target.value)}
                             placeholder="Misal: Essilor Crizal A4" autoComplete="off" />
                         <datalist id="f-nama-list">
-                            {existingNama.map((n) => <option key={n} value={n} />)}
+                            {namaOptions.map((n) => <option key={n} value={n} />)}
                         </datalist>
                     </Field>
 
@@ -239,7 +255,7 @@ export default function Form({
                             onChange={(e) => setData("jenis_lensa", e.target.value)}
                             placeholder="Single Vision, Progressive, dll." autoComplete="off" />
                         <datalist id="f-jenis-list">
-                            {existingJenis.map((j) => <option key={j} value={j} />)}
+                            {jenisOptions.map((j) => <option key={j} value={j} />)}
                         </datalist>
                     </Field>
 
@@ -248,7 +264,7 @@ export default function Form({
                             onChange={(e) => setData("coating_lensa", e.target.value)}
                             placeholder="Anti-Reflektif, Blue Ray, dll." autoComplete="off" />
                         <datalist id="f-coating-list">
-                            {existingCoating.map((c) => <option key={c} value={c} />)}
+                            {coatingOptions.map((c) => <option key={c} value={c} />)}
                         </datalist>
                     </Field>
 
@@ -272,7 +288,7 @@ export default function Form({
                     <Field label="Stok Lensa" error={errors.stok_lensa}>
                         <input type="number" min="0" step="1" inputMode="numeric" className={inputCls}
                             value={data.stok_lensa}
-                            onChange={(e) => setData("stok_lensa", e.target.value)} />
+                            onChange={(e) => setData("stok_lensa", e.target.value === '' ? '' : parseInt(e.target.value, 10) || 0)} />
                     </Field>
 
                     <Field label="Tanggal Masuk" error={errors.tanggal_masuk}>

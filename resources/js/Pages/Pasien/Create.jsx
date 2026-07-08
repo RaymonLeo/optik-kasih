@@ -1,4 +1,4 @@
-// appV1.0 Rev 3 - Semua field wajib diisi (kecuali tanggal lahir), tampilkan error per field dari server.
+// appV1.0 Rev 4 - Tambah keterangan bahwa kode pasien otomatis diformat agar panjangnya seragam.
 
 import React, { useMemo, useState } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
@@ -75,9 +75,12 @@ function Create() {
                             <input
                                 value={f.kode_pasien}
                                 onChange={onChange('kode_pasien')}
-                                placeholder="contoh: R250"
+                                placeholder="contoh: R250 atau cukup 250"
                                 className={inputClass('kode_pasien')}
                             />
+                            <p className="mt-1 text-xs text-gray-500">
+                                Otomatis diformat jadi 7 digit (mis. "R250" atau "250" → "R0000250") agar panjang kode seragam dengan data lain.
+                            </p>
                             <FieldError name="kode_pasien" errors={serverErrors} />
                         </div>
 

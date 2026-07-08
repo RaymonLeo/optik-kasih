@@ -1,4 +1,4 @@
-// appV1.0 Rev 9 - Hapus tombol masuk admin dari halaman publik; gunakan branch_map_link untuk embed peta.
+// appV1.0 Rev 10 - Seluruh card produk (termasuk gambar) bisa diklik langsung ke detail produk.
 
 import { Head, Link, router } from '@inertiajs/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -445,31 +445,33 @@ export default function Welcome({ products, categories = [], branches = [], filt
                         {productList.length > 0 ? (
                             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                                 {productList.map((product) => (
-                                    <article key={product.id} className="group overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
-                                        <div className="relative aspect-[4/3] bg-slate-100">
-                                            {product.gambar_produk ? (
-                                                <img src={`/storage/${product.gambar_produk}`} alt={product.nama_produk} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-                                            ) : product.images?.[0]?.path ? (
-                                                <img src={`/storage/${product.images[0].path}`} alt={product.nama_produk} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-                                            ) : (
-                                                <div className="flex h-full w-full items-center justify-center bg-[#e9f1ee] text-[#1f3b3d]"><Glasses className="h-16 w-16 opacity-35" /></div>
-                                            )}
-                                            <span className="absolute left-3 top-3 bg-white/90 px-2.5 py-1 text-xs font-black uppercase tracking-wide text-[#e56020] shadow-sm">{product.kategori_produk}</span>
-                                        </div>
-                                        <div className="p-5">
-                                            <Link href={route('catalog.product.show', product.id)} className="line-clamp-2 min-h-[3.5rem] text-lg font-black leading-7 text-[#1f3b3d] hover:text-[#e56020]">{product.nama_produk}</Link>
-                                            <div className="mt-4 flex items-end justify-between gap-3">
-                                                <div>
-                                                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Informasi</p>
-                                                    <p className="mt-1 text-sm font-bold text-[#1f3b3d]">Detail & WhatsApp cabang</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Stok</p>
-                                                    <p className="mt-1 text-sm font-black text-[#1f3b3d]">{product.jumlah_produk ?? 0}</p>
-                                                </div>
+                                    <article key={product.id}>
+                                        <Link href={route('catalog.product.show', product.id)} className="group block overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:border-orange-200 hover:shadow-xl">
+                                            <div className="relative aspect-[4/3] bg-slate-100">
+                                                {product.gambar_produk ? (
+                                                    <img src={`/storage/${product.gambar_produk}`} alt={product.nama_produk} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                                                ) : product.images?.[0]?.path ? (
+                                                    <img src={`/storage/${product.images[0].path}`} alt={product.nama_produk} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                                                ) : (
+                                                    <div className="flex h-full w-full items-center justify-center bg-[#e9f1ee] text-[#1f3b3d]"><Glasses className="h-16 w-16 opacity-35" /></div>
+                                                )}
+                                                <span className="absolute left-3 top-3 bg-white/90 px-2.5 py-1 text-xs font-black uppercase tracking-wide text-[#e56020] shadow-sm">{product.kategori_produk}</span>
                                             </div>
-                                            <Link href={route('catalog.product.show', product.id)} className="mt-4 inline-flex text-sm font-extrabold text-[#e56020] hover:underline">Lihat produk</Link>
-                                        </div>
+                                            <div className="p-5">
+                                                <span className="line-clamp-2 block min-h-[3.5rem] text-lg font-black leading-7 text-[#1f3b3d] group-hover:text-[#e56020]">{product.nama_produk}</span>
+                                                <div className="mt-4 flex items-end justify-between gap-3">
+                                                    <div>
+                                                        <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Informasi</p>
+                                                        <p className="mt-1 text-sm font-bold text-[#1f3b3d]">Detail & WhatsApp cabang</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Stok</p>
+                                                        <p className="mt-1 text-sm font-black text-[#1f3b3d]">{product.jumlah_produk ?? 0}</p>
+                                                    </div>
+                                                </div>
+                                                <span className="mt-4 inline-flex text-sm font-extrabold text-[#e56020] group-hover:underline">Lihat produk</span>
+                                            </div>
+                                        </Link>
                                     </article>
                                 ))}
                             </div>

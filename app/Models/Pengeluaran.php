@@ -1,5 +1,7 @@
 <?php
 
+// appV1.0 Rev 1 - Format cast tanggal jadi Y-m-d supaya JSON tidak keluar sebagai ISO datetime mentah.
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -13,7 +15,7 @@ class Pengeluaran extends Model
     ];
 
     protected $casts = [
-        'tanggal' => 'date',
+        'tanggal' => 'date:Y-m-d',
         'jumlah' => 'decimal:2',
     ];
 

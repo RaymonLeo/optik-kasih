@@ -1,5 +1,5 @@
 <?php
-// appV1.0 Rev 8 - Restructure: hapus kanan/kiri, ganti dengan satu set parameter lensa (sph/cyl/axis/add/prism/base).
+// appV1.0 Rev 9 - Format cast tanggal jadi Y-m-d supaya JSON tidak keluar sebagai ISO datetime mentah.
 
 namespace App\Models;
 
@@ -21,7 +21,7 @@ class Lensa extends Model
     ];
 
     protected $casts = [
-        'tanggal_masuk' => 'date',
+        'tanggal_masuk' => 'date:Y-m-d',
     ];
 
     public function admin()

@@ -1,4 +1,4 @@
-// appV1.0 Rev 6 - Tambah toggle status pasien (aktif/nonaktif) di form edit.
+// appV1.0 Rev 7 - Tambah keterangan bahwa kode pasien otomatis diformat agar panjangnya seragam.
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Head, usePage, router } from '@inertiajs/react';
@@ -54,9 +54,12 @@ function Edit() {
               <input
                 value={f.kode_pasien || ''}
                 onChange={onChange('kode_pasien')}
-                placeholder="contoh: A0001"
+                placeholder="contoh: R250 atau cukup 250"
                 className="mt-1 w-full rounded-lg border px-3 py-2 focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
               />
+              <p className="mt-1 text-xs text-gray-500">
+                Otomatis diformat jadi 7 digit (mis. "R250" atau "250" → "R0000250") agar panjang kode seragam dengan data lain.
+              </p>
             </div>
 
             <div className="md:col-span-2">

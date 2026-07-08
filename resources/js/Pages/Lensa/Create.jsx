@@ -1,4 +1,4 @@
-// appV1.0 Rev 5 - Tampilkan ringkasan error validasi di atas form; try-catch log di controller.
+// appV1.0 Rev 10 - Tambah Perfect Lens & Parfait ke default Nama Lensa (merek yang beredar di pasar lokal Indonesia).
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -16,6 +16,18 @@ const fmtSigned = (n) => (n > 0 ? `+${n.toFixed(2)}` : n < 0 ? n.toFixed(2) : '0
 const today     = () => new Date().toISOString().split('T')[0];
 
 const NUMERIC_RE = /^[+-]?\d*\.?\d*$/;
+
+const DEFAULT_JENIS = ['Single Vision', 'Bifokal', 'Trifokal', 'Progressive'];
+const DEFAULT_COATING = [
+    'Anti-Reflektif', 'Blue Ray', 'Photochromic', 'Bluechromic', 'UV Protection',
+    'Hydrophobic', 'Anti Gores', 'Polarized', 'Hard Coat', 'Mirror Coating',
+];
+const DEFAULT_NAMA = [
+    'Essilor', 'Crizal', 'Varilux', 'Transitions', 'Zeiss', 'Hoya', 'Rodenstock',
+    'Nikon Lenswear', 'Kodak Lens', 'Chemi Lens', 'Perfect Lens', 'Parfait',
+];
+
+const mergeOptions = (defaults, fromDb) => [...new Set([...defaults, ...fromDb.filter(Boolean)])];
 
 /* ── ComboboxSelect (SPH / CYL) — Portal dropdown, live numeric search ─── */
 function ComboboxSelect({ value, onChange, options, placeholder = '—' }) {
@@ -159,6 +171,10 @@ export default function Create({ mode = "create", prefill = null }) {
     const routeBase       = props.routeBase       || 'admin.lensa';
     const backRoute       = props.backRoute       || 'admin.lensa.index';
 
+    const jenisOptions   = useMemo(() => mergeOptions(DEFAULT_JENIS, existingJenis), [existingJenis]);
+    const coatingOptions = useMemo(() => mergeOptions(DEFAULT_COATING, existingCoating), [existingCoating]);
+    const namaOptions    = useMemo(() => mergeOptions(DEFAULT_NAMA, existingNama), [existingNama]);
+
     /* ── Options (memoized) ─────────────────────────────────────────────── */
     const sphCylOptions = useMemo(
         () => rangeStep(-30, 30, 0.25).map((n) => ({ value: n.toFixed(2), label: fmtSigned(n) })),
@@ -288,7 +304,7 @@ export default function Create({ mode = "create", prefill = null }) {
                                 placeholder="Misal: Essilor Crizal A4"
                                 autoComplete="off" />
                             <datalist id="nama-list">
-                                {existingNama.map((n) => <option key={n} value={n} />)}
+                                {namaOptions.map((n) => <option key={n} value={n} />)}
                             </datalist>
                         </Field>
 
@@ -299,7 +315,7 @@ export default function Create({ mode = "create", prefill = null }) {
                                 placeholder="Single Vision, Progressive…"
                                 autoComplete="off" />
                             <datalist id="jenis-list">
-                                {existingJenis.map((j) => <option key={j} value={j} />)}
+                                {jenisOptions.map((j) => <option key={j} value={j} />)}
                             </datalist>
                         </Field>
 
@@ -310,7 +326,7 @@ export default function Create({ mode = "create", prefill = null }) {
                                 placeholder="Anti-Reflektif, Blue Ray…"
                                 autoComplete="off" />
                             <datalist id="coating-list">
-                                {existingCoating.map((c) => <option key={c} value={c} />)}
+                                {coatingOptions.map((c) => <option key={c} value={c} />)}
                             </datalist>
                         </Field>
 
@@ -334,7 +350,7 @@ export default function Create({ mode = "create", prefill = null }) {
                         <Field label="Stok" error={errors.stok_lensa}>
                             <input type="number" min="0" step="1" inputMode="numeric" className={inputCls}
                                 value={data.stok_lensa}
-                                onChange={(e) => setData('stok_lensa', e.target.value)} />
+                                onChange={(e) => setData('stok_lensa', e.target.value === '' ? '' : parseInt(e.target.value, 10) || 0)} />
                         </Field>
 
                         <Field label="Tanggal Masuk" error={errors.tanggal_masuk}>
@@ -357,7 +373,7 @@ export default function Create({ mode = "create", prefill = null }) {
                                 onChange={handleFile}
                                 className="text-sm" />
                             <p className="mt-1 text-xs text-gray-400">
-                                Format: JPG, PNG, GIF, WebP, BMP, AVIF · Maks 10 MB
+                                Format: JPG, PNG, GIF, WebP, BMP, AVIF · Maks 20 MB (otomatis dikompres)
                             </p>
                             {preview && (
                                 <div className="mt-2 h-28 w-28 overflow-hidden rounded-lg border bg-gray-50">

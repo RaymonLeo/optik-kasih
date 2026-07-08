@@ -1,6 +1,6 @@
 <?php
 
-// appV1.0 Rev 7 - Brand produk, normalisasi lowercase, dan setThumbnail untuk foto galeri.
+// appV1.0 Rev 13 - Saran brand dipisah per kategori (kacamata/soflen/air soflen) via existingBrandsByCategory.
 
 namespace App\Http\Controllers;
 
@@ -10,6 +10,7 @@ use App\Models\Produk;
 use App\Models\User;
 use App\Models\ActivityLog;
 use App\Models\ProductImage;
+use App\Services\ImageCompressor;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -34,6 +35,26 @@ class ProdukController extends Controller
             $query->whereIn('kategori_produk', $category);
         }
 
+        $warna = array_values(array_filter((array) $request->get('warna', [])));
+        if (!empty($warna)) {
+            $query->whereIn('warna_produk', $warna);
+        }
+
+        $diameter = array_values(array_filter((array) $request->get('diameter', [])));
+        if (!empty($diameter)) {
+            $query->whereIn('diameter_produk', $diameter);
+        }
+
+        $bahan = array_values(array_filter((array) $request->get('bahan', [])));
+        if (!empty($bahan)) {
+            $query->whereIn('bahan_produk', $bahan);
+        }
+
+        $minus = array_values(array_filter((array) $request->get('minus', [])));
+        if (!empty($minus)) {
+            $query->whereIn('minus_produk', $minus);
+        }
+
         if ($habis) {
             $query->where('jumlah_produk', 0);
         }
@@ -45,6 +66,10 @@ class ProdukController extends Controller
             ->distinct()
             ->orderBy('kategori_produk')
             ->pluck('kategori_produk');
+        $colors = $this->distinctValues('warna_produk', $adminId);
+        $diameters = $this->distinctValues('diameter_produk', $adminId);
+        $materials = $this->distinctValues('bahan_produk', $adminId);
+        $minuses = $this->distinctValues('minus_produk', $adminId);
 
         // Stok rendah: jumlah_produk > 0 dan ≤ 5
         $lowStockAlerts = Produk::where('admin_id', $adminId)
@@ -66,7 +91,11 @@ class ProdukController extends Controller
         return Inertia::render('Produk/Index', [
             'products'         => $products,
             'categories'       => $categories,
-            'filters'          => ['search' => $search, 'category' => $category, 'habis' => $request->boolean('habis', false)],
+            'colors'           => $colors,
+            'diameters'        => $diameters,
+            'materials'        => $materials,
+            'minuses'          => $minuses,
+            'filters'          => ['search' => $search, 'category' => $category, 'warna' => $warna, 'diameter' => $diameter, 'bahan' => $bahan, 'minus' => $minus, 'habis' => $request->boolean('habis', false)],
             'routeBase'        => 'admin.produk',
             'lowStockAlerts'   => $lowStockAlerts,
             'outOfStockAlerts' => $outOfStockAlerts,
@@ -90,8 +119,29 @@ class ProdukController extends Controller
             $query->where('admin_id', $request->admin_id);
         }
 
-        if ($request->filled('category')) {
-            $query->where('kategori_produk', $request->category);
+        $category = array_values(array_filter((array) $request->get('category', [])));
+        if (!empty($category)) {
+            $query->whereIn('kategori_produk', $category);
+        }
+
+        $warna = array_values(array_filter((array) $request->get('warna', [])));
+        if (!empty($warna)) {
+            $query->whereIn('warna_produk', $warna);
+        }
+
+        $diameter = array_values(array_filter((array) $request->get('diameter', [])));
+        if (!empty($diameter)) {
+            $query->whereIn('diameter_produk', $diameter);
+        }
+
+        $bahan = array_values(array_filter((array) $request->get('bahan', [])));
+        if (!empty($bahan)) {
+            $query->whereIn('bahan_produk', $bahan);
+        }
+
+        $minus = array_values(array_filter((array) $request->get('minus', [])));
+        if (!empty($minus)) {
+            $query->whereIn('minus_produk', $minus);
         }
 
         $products = $query->latest()->paginate(15)->withQueryString();
@@ -106,7 +156,11 @@ class ProdukController extends Controller
             'products' => $products,
             'admins' => $admins,
             'categories' => $categories,
-            'filters' => $request->only(['search', 'admin_id', 'category'])
+            'colors' => $this->distinctValues('warna_produk'),
+            'diameters' => $this->distinctValues('diameter_produk'),
+            'materials' => $this->distinctValues('bahan_produk'),
+            'minuses' => $this->distinctValues('minus_produk'),
+            'filters' => ['search' => $search, 'admin_id' => $request->get('admin_id', ''), 'category' => $category, 'warna' => $warna, 'diameter' => $diameter, 'bahan' => $bahan, 'minus' => $minus],
         ]);
     }
 
@@ -119,6 +173,11 @@ class ProdukController extends Controller
             'admins'     => [],
             'existingCategories' => $this->distinctValues('kategori_produk', $adminId),
             'existingBrands'     => $this->distinctValues('brand_produk', $adminId),
+            'existingBrandsByCategory' => $this->brandsByCategory($adminId),
+            'existingColors'     => $this->distinctValues('warna_produk', $adminId),
+            'existingDiameters'  => $this->distinctValues('diameter_produk', $adminId),
+            'existingMaterials'  => $this->distinctValues('bahan_produk', $adminId),
+            'existingMinuses'    => $this->distinctValues('minus_produk', $adminId),
         ]);
     }
 
@@ -131,6 +190,11 @@ class ProdukController extends Controller
             'selectedAdminId'    => $request->get('admin_id'),
             'existingCategories' => $this->distinctValues('kategori_produk'),
             'existingBrands'     => $this->distinctValues('brand_produk'),
+            'existingBrandsByCategory' => $this->brandsByCategory(),
+            'existingColors'     => $this->distinctValues('warna_produk'),
+            'existingDiameters'  => $this->distinctValues('diameter_produk'),
+            'existingMaterials'  => $this->distinctValues('bahan_produk'),
+            'existingMinuses'    => $this->distinctValues('minus_produk'),
         ]);
     }
 
@@ -140,7 +204,7 @@ class ProdukController extends Controller
         unset($data['gambar_produk_tambahan']);
 
         if ($request->hasFile('gambar_produk')) {
-            $data['gambar_produk'] = $request->file('gambar_produk')->store('produk', 'public');
+            $data['gambar_produk'] = ImageCompressor::store($request->file('gambar_produk'), 'produk', 'public');
         }
 
         $data['admin_id'] = auth()->id();
@@ -157,7 +221,7 @@ class ProdukController extends Controller
         unset($data['gambar_produk_tambahan']);
 
         if ($request->hasFile('gambar_produk')) {
-            $data['gambar_produk'] = $request->file('gambar_produk')->store('produk', 'public');
+            $data['gambar_produk'] = ImageCompressor::store($request->file('gambar_produk'), 'produk', 'public');
         }
 
         $produk = Produk::create($data);
@@ -182,6 +246,11 @@ class ProdukController extends Controller
             'admins'     => [],
             'existingCategories' => $this->distinctValues('kategori_produk', $adminId),
             'existingBrands'     => $this->distinctValues('brand_produk', $adminId),
+            'existingBrandsByCategory' => $this->brandsByCategory($adminId),
+            'existingColors'     => $this->distinctValues('warna_produk', $adminId),
+            'existingDiameters'  => $this->distinctValues('diameter_produk', $adminId),
+            'existingMaterials'  => $this->distinctValues('bahan_produk', $adminId),
+            'existingMinuses'    => $this->distinctValues('minus_produk', $adminId),
         ]);
     }
 
@@ -203,6 +272,11 @@ class ProdukController extends Controller
             'admins'     => User::where('role', 'admin')->orderBy('name')->get(['id', 'name']),
             'existingCategories' => $this->distinctValues('kategori_produk'),
             'existingBrands'     => $this->distinctValues('brand_produk'),
+            'existingBrandsByCategory' => $this->brandsByCategory(),
+            'existingColors'     => $this->distinctValues('warna_produk'),
+            'existingDiameters'  => $this->distinctValues('diameter_produk'),
+            'existingMaterials'  => $this->distinctValues('bahan_produk'),
+            'existingMinuses'    => $this->distinctValues('minus_produk'),
         ]);
     }
 
@@ -287,14 +361,18 @@ class ProdukController extends Controller
             'nama_produk'              => 'required|string|max:255',
             'kategori_produk'          => 'required|string|max:255',
             'brand_produk'             => 'nullable|string|max:255',
+            'warna_produk'             => 'nullable|string|max:100',
+            'diameter_produk'          => 'nullable|string|max:50',
+            'bahan_produk'             => 'nullable|string|max:100',
+            'minus_produk'             => 'nullable|string|max:50',
             'jumlah_produk'            => 'required|integer|min:0',
             'harga_produk'             => 'required|numeric|min:0',
             'tanggal_masuk'            => 'nullable|date',
             'expired_produk'           => 'nullable|date',
             'deskripsi_produk'         => 'nullable|string|max:3000',
-            'gambar_produk'            => 'nullable|file|mimes:jpg,jpeg,png,gif,webp,bmp,avif|max:10240',
+            'gambar_produk'            => 'nullable|file|mimes:jpg,jpeg,png,gif,webp,bmp,avif|max:20480',
             'gambar_produk_tambahan'   => 'nullable|array|max:7',
-            'gambar_produk_tambahan.*' => 'file|mimes:jpg,jpeg,png,gif,webp,bmp,avif|max:10240',
+            'gambar_produk_tambahan.*' => 'file|mimes:jpg,jpeg,png,gif,webp,bmp,avif|max:20480',
             'lebar_lensa'              => 'nullable|integer|min:0|max:999',
             'gagang_hidung'            => 'nullable|integer|min:0|max:999',
             'panjang_gagang'           => 'nullable|integer|min:0|max:999',
@@ -307,10 +385,10 @@ class ProdukController extends Controller
         return $request->validate($rules);
     }
 
-    /** Normalisasi kategori dan brand ke lowercase tanpa spasi berlebih. */
+    /** Normalisasi kategori, brand, warna, diameter, bahan, dan minus ke lowercase tanpa spasi berlebih. */
     private function normalizeData(array $data): array
     {
-        foreach (['kategori_produk', 'brand_produk'] as $field) {
+        foreach (['kategori_produk', 'brand_produk', 'warna_produk', 'diameter_produk', 'bahan_produk', 'minus_produk'] as $field) {
             if (!empty($data[$field])) {
                 $data[$field] = strtolower(trim($data[$field])) ?: null;
             }
@@ -334,13 +412,36 @@ class ProdukController extends Controller
         return $query->pluck($column);
     }
 
+    /** Kelompokkan brand_produk berdasarkan kategori_produk, supaya saran brand terpisah per kategori. */
+    private function brandsByCategory(?int $adminId = null): array
+    {
+        $query = Produk::select('kategori_produk', 'brand_produk')
+            ->whereNotNull('kategori_produk')
+            ->where('kategori_produk', '!=', '')
+            ->whereNotNull('brand_produk')
+            ->where('brand_produk', '!=', '')
+            ->distinct();
+
+        if ($adminId !== null) {
+            $query->where('admin_id', $adminId);
+        }
+
+        return $query->get()
+            ->groupBy('kategori_produk')
+            ->map(fn ($rows) => $rows->pluck('brand_produk')->unique()->sort()->values())
+            ->toArray();
+    }
+
     private function replaceImage(Request $request, Produk $produk, array &$data): void
     {
         if ($request->hasFile('gambar_produk')) {
             if ($produk->gambar_produk) {
                 Storage::disk('public')->delete($produk->gambar_produk);
             }
-            $data['gambar_produk'] = $request->file('gambar_produk')->store('produk', 'public');
+            $data['gambar_produk'] = ImageCompressor::store($request->file('gambar_produk'), 'produk', 'public');
+        } else {
+            // Tidak upload gambar baru saat edit — jangan timpa gambar_produk yang sudah ada dengan null.
+            unset($data['gambar_produk']);
         }
     }
 
@@ -351,7 +452,7 @@ class ProdukController extends Controller
 
         foreach ($images as $index => $image) {
             $produk->images()->create([
-                'path'       => $image->store('produk', 'public'),
+                'path'       => ImageCompressor::store($image, 'produk', 'public'),
                 'sort_order' => $startOrder + $index + 1,
             ]);
         }
