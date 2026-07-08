@@ -1,2 +1,6 @@
 *
 !.gitignore
+!produk
+!produk/**
+!lensa
+!lensa/**
