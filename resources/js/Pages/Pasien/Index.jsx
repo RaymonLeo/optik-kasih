@@ -1,6 +1,6 @@
-// appV1.0 Rev 11 - Sinkronkan preview kolom import dengan logika kolom "No" yang benar (bukan "No Bon"/"Kode Pasien").
+// appV1.0 Rev 12 - Flash success setelah edit/update; popup konflik import Excel dengan pilihan timpa/lewati.
 
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { router, Head, usePage } from '@inertiajs/react';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import Toast from '@/Components/ui/Toast';
@@ -10,19 +10,150 @@ import SidebarLayout from "@/Components/SidebarLayout";
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
+// ── Conflict Resolution Modal ──────────────────────────────────────────────
+function ConflictModal({ conflicts, onConfirm, onCancel }) {
+  const [decisions, setDecisions] = useState(() => {
+    const d = {};
+    conflicts.forEach(c => { d[c.kode] = 'skip'; });
+    return d;
+  });
+
+  const setAll = (val) => {
+    const d = {};
+    conflicts.forEach(c => { d[c.kode] = val; });
+    setDecisions(d);
+  };
+
+  const overwriteCount = Object.values(decisions).filter(v => v === 'overwrite').length;
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/60 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl">
+        {/* Header */}
+        <div className="border-b border-gray-100 px-6 py-5">
+          <h2 className="text-lg font-bold text-gray-900">Data Duplikat Ditemukan</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            <span className="font-semibold text-orange-600">{conflicts.length} data</span> di file Excel memiliki kode pasien yang sudah ada di database.
+            Pilih aksi untuk setiap data — data kesehatan mata <strong>tidak akan berubah</strong>.
+          </p>
+        </div>
+
+        {/* Conflict list */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+          {conflicts.map((c) => (
+            <div key={c.kode} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <span className="font-mono text-sm font-bold text-orange-700">{c.kode}</span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDecisions(d => ({ ...d, [c.kode]: 'overwrite' }))}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                      decisions[c.kode] === 'overwrite'
+                        ? 'bg-orange-600 text-white shadow'
+                        : 'border border-orange-300 text-orange-700 hover:bg-orange-50'
+                    }`}
+                  >
+                    Timpa
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDecisions(d => ({ ...d, [c.kode]: 'skip' }))}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                      decisions[c.kode] === 'skip'
+                        ? 'bg-gray-700 text-white shadow'
+                        : 'border border-gray-300 text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    Lewati
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="rounded-lg border border-gray-200 bg-white p-3">
+                  <p className="mb-1.5 font-bold text-gray-500 uppercase tracking-wide">Data di Database</p>
+                  <p className="font-semibold text-gray-800">{c.nama_lama || '—'}</p>
+                  <p className="text-gray-500">{c.nohp_lama || '—'}</p>
+                  <p className="mt-1 text-gray-500 line-clamp-2">{c.alamat_lama || '—'}</p>
+                </div>
+                <div className={`rounded-lg border p-3 ${decisions[c.kode] === 'overwrite' ? 'border-orange-300 bg-orange-50' : 'border-gray-200 bg-white'}`}>
+                  <p className="mb-1.5 font-bold text-gray-500 uppercase tracking-wide">Data dari Excel</p>
+                  <p className="font-semibold text-gray-800">{c.nama_baru || '—'}</p>
+                  <p className="text-gray-500">{c.nohp_baru || '—'}</p>
+                  <p className="mt-1 text-gray-500 line-clamp-2">{c.alamat_baru || '—'}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between gap-3 border-t border-gray-100 px-6 py-4">
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setAll('overwrite')}
+              className="rounded-lg border border-orange-300 px-3 py-1.5 text-xs font-semibold text-orange-700 hover:bg-orange-50">
+              Timpa Semua
+            </button>
+            <button type="button" onClick={() => setAll('skip')}
+              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50">
+              Lewati Semua
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <button type="button" onClick={onCancel}
+              className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+              Batal
+            </button>
+            <button type="button" onClick={() => onConfirm(decisions)}
+              className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700">
+              Konfirmasi {overwriteCount > 0 ? `(${overwriteCount} ditimpa)` : ''}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Index ─────────────────────────────────────────────────────────────
 function Index() {
   const { props } = usePage();
-  const rows         = props.patients?.data || [];
-  const total        = props.patients?.total || 0;
-  const isAdmin      = props.auth?.user?.role === 'admin';
-  const importErrors = props.importErrors || [];
-  const filters      = props.filters || {};
+  const rows           = props.patients?.data || [];
+  const total          = props.patients?.total || 0;
+  const isAdmin        = props.auth?.user?.role === 'admin';
+  const importErrors   = props.importErrors || [];
+  const importConflicts = props.importConflicts || [];
+  const filters        = props.filters || {};
+  const flash          = props.flash || {};
 
-  // Filter state — controlled from server filters
+  // Filter state
   const [q, setQ]           = useState(filters.q || '');
   const [letter, setLetter] = useState(filters.letter || '');
   const [sort, setSort]     = useState(filters.sort || 'asc');
   const debounceRef         = useRef(null);
+
+  // Toast
+  const [toast, setToast] = useState({ open: false, type: 'success', message: '' });
+
+  // Flash success (after edit redirect)
+  useEffect(() => {
+    if (flash.success) {
+      setToast({ open: true, type: 'success', message: flash.success });
+    }
+  }, [flash.success]);
+
+  // Conflict modal state — initialize from props if conflicts exist
+  const [conflicts, setConflicts] = useState(importConflicts);
+  const [showConflict, setShowConflict] = useState(importConflicts.length > 0);
+
+  // Sync if prop changes (e.g. after redirect)
+  useEffect(() => {
+    if (importConflicts.length > 0) {
+      setConflicts(importConflicts);
+      setShowConflict(true);
+    }
+  }, [importConflicts.length]);
 
   const navigate = useCallback((params) => {
     router.get(route('pasien.index'), params, { preserveState: true, replace: true });
@@ -30,7 +161,6 @@ function Index() {
 
   const handleSearch = (val) => {
     setQ(val);
-    // Reset letter filter when searching
     if (val) setLetter('');
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
@@ -59,7 +189,6 @@ function Index() {
   const [hoverIndex, setHoverIndex]     = useState(null);
   const [toDelete, setToDelete]         = useState(null);
   const [deleteReason, setDeleteReason] = useState('');
-  const [toast, setToast]               = useState({ open: false, type: 'success', message: '' });
 
   const [showImport, setShowImport] = useState(false);
   const [importFile, setImportFile] = useState(null);
@@ -77,6 +206,13 @@ function Index() {
       onSuccess: () => { setShowImport(false); setImportFile(null); },
       onError:   () => setToast({ open: true, type: 'error', message: 'Gagal mengimpor file.' }),
       onFinish:  () => setImporting(false),
+    });
+  };
+
+  const submitConflictConfirm = (decisions) => {
+    router.post(route('pasien.import.confirm'), { decisions }, {
+      onSuccess: () => { setShowConflict(false); setConflicts([]); },
+      onError:   () => setToast({ open: true, type: 'error', message: 'Gagal memproses konfirmasi.' }),
     });
   };
 
@@ -163,7 +299,7 @@ function Index() {
               </table>
             </div>
             <p className="mb-3 text-xs text-orange-600">
-              Excel multi-sheet (A–Z) dibaca otomatis. Baris tanpa Nama dilewati. Kolom <b>No</b> (nomor urut) yang dipakai untuk membuat Kode Pasien — huruf depan nama ditambahkan otomatis lalu di-pad 7 digit (mis. No=1, Nama=Aroen → "A0000001"). Kolom "No Bon" diabaikan sepenuhnya.
+              Kolom <b>No</b> dipakai untuk membuat Kode Pasien. Jika kode sudah ada, popup konfirmasi akan muncul — Anda bisa pilih timpa atau lewati per data. Data kesehatan mata tidak akan tersentuh.
             </p>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -200,10 +336,9 @@ function Index() {
             placeholder="Cari nama, kode, telepon, alamat…"
             className="flex-1 rounded-xl border border-gray-300 px-4 py-2 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
           />
-          {/* Sort toggle */}
           <button
             onClick={handleSort}
-            title={sort === 'asc' ? 'Urutan Kode Pasien: A0000001 → Z9999999 (klik untuk kebalikannya)' : 'Urutan Kode Pasien: Z9999999 → A0000001 (klik untuk kebalikannya)'}
+            title={sort === 'asc' ? 'Urutan Kode Pasien: A0000001 → Z9999999' : 'Urutan Kode Pasien: Z9999999 → A0000001'}
             className={`flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-semibold transition
               ${sort === 'desc'
                 ? 'border-orange-400 bg-orange-100 text-orange-700'
@@ -218,10 +353,8 @@ function Index() {
             )}
           </button>
           {hasFilter && (
-            <button
-              onClick={resetAll}
-              className="shrink-0 rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-500 hover:bg-gray-50"
-            >
+            <button onClick={resetAll}
+              className="shrink-0 rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-500 hover:bg-gray-50">
               ✕ Reset
             </button>
           )}
@@ -230,21 +363,17 @@ function Index() {
         {/* A–Z letter filter */}
         <div className="mb-3 flex flex-wrap gap-1">
           {LETTERS.map((l) => (
-            <button
-              key={l}
-              onClick={() => handleLetter(l)}
+            <button key={l} onClick={() => handleLetter(l)}
               className={`h-8 w-8 rounded-lg text-sm font-bold transition
                 ${letter === l
                   ? 'bg-orange-600 text-white shadow'
                   : 'border border-gray-200 bg-white text-gray-600 hover:border-orange-400 hover:text-orange-600'
-                }`}
-            >
+                }`}>
               {l}
             </button>
           ))}
         </div>
 
-        {/* Active filter info */}
         {(q || letter) && (
           <p className="mb-2 text-xs text-gray-500">
             {letter
@@ -270,8 +399,7 @@ function Index() {
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
               {rows.map((row, idx) => (
-                <tr
-                  key={row.id}
+                <tr key={row.id}
                   className="relative cursor-pointer hover:bg-orange-50/50"
                   onMouseEnter={() => setHoverIndex(idx)}
                   onMouseLeave={() => setHoverIndex(null)}
@@ -322,6 +450,15 @@ function Index() {
         <Pagination links={props.patients?.links || []} />
       </div>
 
+      {/* Conflict resolution modal */}
+      {showConflict && conflicts.length > 0 && (
+        <ConflictModal
+          conflicts={conflicts}
+          onConfirm={submitConflictConfirm}
+          onCancel={() => { setShowConflict(false); setConflicts([]); }}
+        />
+      )}
+
       <ConfirmDialog
         open={!!toDelete}
         danger
@@ -343,6 +480,7 @@ function Index() {
           </label>
         )}
       </ConfirmDialog>
+
       <Toast open={toast.open} type={toast.type} message={toast.message} onClose={() => setToast({ ...toast, open: false })} />
     </>
   );

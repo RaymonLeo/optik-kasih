@@ -54,6 +54,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Rute statis pasien harus sebelum resource agar tidak tertukar dengan {pasien}
     Route::get('/pasien/template', [PasienController::class, 'importTemplate'])->name('pasien.template');
     Route::post('/pasien/import', [PasienController::class, 'import'])->name('pasien.import');
+    Route::post('/pasien/import/confirm', [PasienController::class, 'importConfirm'])->name('pasien.import.confirm');
     Route::resource('pasien', PasienController::class);
     Route::resource('pasien.kesehatan', KesehatanController::class)->only(['store'])->shallow();
     Route::put('/kesehatan/{kesehatan}', [KesehatanController::class, 'update'])->name('kesehatan.update');

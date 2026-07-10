@@ -52,9 +52,10 @@ class PasienController extends Controller
             ]);
 
         return Inertia::render('Pasien/Index', [
-            'patients'     => $patients,
-            'filters'      => ['q' => $q, 'letter' => $activeLetter, 'sort' => $sort],
-            'importErrors' => session('import_errors', []),
+            'patients'         => $patients,
+            'filters'          => ['q' => $q, 'letter' => $activeLetter, 'sort' => $sort],
+            'importErrors'     => session('import_errors', []),
+            'importConflicts'  => session('import_pending_conflicts', []),
         ]);
     }
 
@@ -209,7 +210,7 @@ class PasienController extends Controller
             );
         }
 
-        return redirect()->route('pasien.edit', $pasien)->with('success', 'Pasien berhasil diperbarui.');
+        return redirect()->route('pasien.index')->with('success', 'Pasien berhasil diperbarui.');
     }
 
     public function destroy(Request $request, Pasien $pasien)
@@ -332,18 +333,16 @@ class PasienController extends Controller
         $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($path);
         $sheetNames  = $spreadsheet->getSheetNames();
 
-        $imported  = 0;
-        $rowErrors = [];
+        $toInsert  = [];
+        $conflicts = [];
 
         foreach ($sheetNames as $sheetName) {
             $sheet    = $spreadsheet->getSheetByName($sheetName);
             $dataRows = array_slice($sheet->toArray(null, true, true, false), 1);
 
             foreach ($dataRows as $idx => $row) {
-                $actualRow = $idx + 2;
-                $cols      = array_values(array_slice($row, 0, 6));
+                $cols = array_values(array_slice($row, 0, 6));
 
-                // Kolom: No | Nama Pasien | No Bon (nomor kertas bon transaksi, BUKAN kode pasien — diabaikan) | Tanggal Daftar | Alamat | No. HP
                 $noUrut  = $this->trimVal($cols[0] ?? null);
                 $nama    = $this->trimVal($cols[1] ?? null);
                 $tanggal = $this->trimVal($cols[3] ?? null);
@@ -352,33 +351,60 @@ class PasienController extends Controller
 
                 if (!$nama) continue;
 
-                $nama   = $this->cleanName($nama);
-                $alamat = $this->cleanName($alamat);
-                $kode   = $this->buildKodePasien($noUrut, $nama);
+                $nama    = $this->cleanName($nama);
+                $alamat  = $this->cleanName($alamat);
+                $kode    = $this->buildKodePasien($noUrut, $nama);
+                $nohpClean    = $this->cleanNohp($nohp);
+                $tanggalClean = $this->parseFlexDate($tanggal);
 
-                $finalKode = $kode !== null ? $this->resolveUniqueKode($kode) : null;
-                if ($finalKode !== null && $finalKode !== $kode) {
-                    $rowErrors[] = "Sheet {$sheetName} Baris {$actualRow}: Kode Pasien '{$kode}' sudah terdaftar, otomatis diganti menjadi '{$finalKode}' agar data tidak hilang.";
+                if ($kode !== null && Pasien::where('kode_pasien', $kode)->exists()) {
+                    $existing    = Pasien::where('kode_pasien', $kode)->first();
+                    $conflicts[] = [
+                        'kode'         => $kode,
+                        'nama_baru'    => $nama,
+                        'tanggal_baru' => $tanggalClean,
+                        'alamat_baru'  => $alamat,
+                        'nohp_baru'    => $nohpClean,
+                        'nama_lama'    => $existing->nama_pasien,
+                        'alamat_lama'  => $existing->alamat_pasien,
+                        'nohp_lama'    => $existing->nohp_pasien,
+                    ];
+                } else {
+                    $finalKode  = $kode !== null ? $this->resolveUniqueKode($kode) : null;
+                    $toInsert[] = [
+                        'kode'    => $finalKode,
+                        'nama'    => $nama,
+                        'tanggal' => $tanggalClean,
+                        'alamat'  => $alamat,
+                        'nohp'    => $nohpClean,
+                        'sheet'   => $sheetName,
+                    ];
                 }
-
-                $pasien = Pasien::create([
-                    'kode_pasien'   => $finalKode,
-                    'nama_pasien'   => $nama,
-                    'tanggal_buat'  => $this->parseFlexDate($tanggal),
-                    'alamat_pasien' => $alamat,
-                    'nohp_pasien'   => $this->cleanNohp($nohp),
-                    'tanggal_lahir' => null,
-                    'status'        => 'aktif',
-                ]);
-                $this->log('import', $pasien, ['imported_via' => 'excel', 'sheet' => $sheetName]);
-                $imported++;
             }
         }
 
-        $msg = "{$imported} pasien berhasil diimpor dari Excel.";
+        $imported = 0;
+        foreach ($toInsert as $row) {
+            $pasien = Pasien::create([
+                'kode_pasien'   => $row['kode'],
+                'nama_pasien'   => $row['nama'],
+                'tanggal_buat'  => $row['tanggal'],
+                'alamat_pasien' => $row['alamat'],
+                'nohp_pasien'   => $row['nohp'],
+                'tanggal_lahir' => null,
+                'status'        => 'aktif',
+            ]);
+            $this->log('import', $pasien, ['imported_via' => 'excel', 'sheet' => $row['sheet']]);
+            $imported++;
+        }
 
-        session()->flash('import_errors', $rowErrors);
-        return redirect()->route('pasien.index')->with('success', $msg);
+        if (!empty($conflicts)) {
+            session(['import_pending_conflicts' => $conflicts]);
+            $msg = "{$imported} pasien baru ditambahkan. " . count($conflicts) . " data memiliki kode yang sama dengan database.";
+            return redirect()->route('pasien.index')->with('success', $msg);
+        }
+
+        return redirect()->route('pasien.index')->with('success', "{$imported} pasien berhasil diimpor dari Excel.");
     }
 
     private function importFromCsv(string $path): \Illuminate\Http\RedirectResponse
@@ -392,43 +418,63 @@ class PasienController extends Controller
 
         fgetcsv($handle); // skip header
 
-        $imported  = 0;
+        $toInsert  = [];
+        $conflicts = [];
         $skipped   = 0;
-        $rowErrors = [];
         $rowNum    = 1;
 
         while (($cols = fgetcsv($handle)) !== false) {
             $rowNum++;
             if (count($cols) < 2) continue;
 
-            // Kolom CSV: No | Nama Pasien | No Bon (nomor kertas bon transaksi, BUKAN kode pasien — diabaikan) | Tanggal Daftar | Alamat | No. HP
             $noUrut  = $this->trimVal($cols[0] ?? null);
             $nama    = $this->trimVal($cols[1] ?? null);
             $tanggal = $this->trimVal($cols[3] ?? null);
             $alamat  = $this->trimVal($cols[4] ?? null);
             $nohp    = $this->trimVal($cols[5] ?? null);
 
-            if (!$nama) {
-                $rowErrors[] = "Baris {$rowNum}: nama wajib diisi, dilewati.";
-                $skipped++;
-                continue;
+            if (!$nama) { $skipped++; continue; }
+
+            $nama         = $this->cleanName($nama);
+            $alamat       = $this->cleanName($alamat);
+            $kode         = $this->buildKodePasien($noUrut, $nama);
+            $nohpClean    = $this->cleanNohp($nohp);
+            $tanggalClean = $this->parseFlexDate($tanggal);
+
+            if ($kode !== null && Pasien::where('kode_pasien', $kode)->exists()) {
+                $existing    = Pasien::where('kode_pasien', $kode)->first();
+                $conflicts[] = [
+                    'kode'         => $kode,
+                    'nama_baru'    => $nama,
+                    'tanggal_baru' => $tanggalClean,
+                    'alamat_baru'  => $alamat,
+                    'nohp_baru'    => $nohpClean,
+                    'nama_lama'    => $existing->nama_pasien,
+                    'alamat_lama'  => $existing->alamat_pasien,
+                    'nohp_lama'    => $existing->nohp_pasien,
+                ];
+            } else {
+                $finalKode  = $kode !== null ? $this->resolveUniqueKode($kode) : null;
+                $toInsert[] = [
+                    'kode'    => $finalKode,
+                    'nama'    => $nama,
+                    'tanggal' => $tanggalClean,
+                    'alamat'  => $alamat,
+                    'nohp'    => $nohpClean,
+                ];
             }
+        }
 
-            $nama   = $this->cleanName($nama);
-            $alamat = $this->cleanName($alamat);
-            $kode   = $this->buildKodePasien($noUrut, $nama);
+        fclose($handle);
 
-            $finalKode = $kode !== null ? $this->resolveUniqueKode($kode) : null;
-            if ($finalKode !== null && $finalKode !== $kode) {
-                $rowErrors[] = "Baris {$rowNum}: Kode Pasien '{$kode}' sudah terdaftar, otomatis diganti menjadi '{$finalKode}' agar data tidak hilang.";
-            }
-
+        $imported = 0;
+        foreach ($toInsert as $row) {
             $pasien = Pasien::create([
-                'kode_pasien'   => $finalKode,
-                'nama_pasien'   => $nama,
-                'tanggal_buat'  => $this->parseFlexDate($tanggal),
-                'alamat_pasien' => $alamat,
-                'nohp_pasien'   => $this->cleanNohp($nohp),
+                'kode_pasien'   => $row['kode'],
+                'nama_pasien'   => $row['nama'],
+                'tanggal_buat'  => $row['tanggal'],
+                'alamat_pasien' => $row['alamat'],
+                'nohp_pasien'   => $row['nohp'],
                 'tanggal_lahir' => null,
                 'status'        => 'aktif',
             ]);
@@ -436,12 +482,51 @@ class PasienController extends Controller
             $imported++;
         }
 
-        fclose($handle);
+        if (!empty($conflicts)) {
+            session(['import_pending_conflicts' => $conflicts]);
+            $msg = "{$imported} pasien baru ditambahkan. " . count($conflicts) . " data memiliki kode yang sama dengan database.";
+            if ($skipped > 0) $msg .= " {$skipped} baris dilewati.";
+            return redirect()->route('pasien.index')->with('success', $msg);
+        }
 
         $msg = "{$imported} pasien berhasil diimpor dari CSV.";
         if ($skipped > 0) $msg .= " {$skipped} baris dilewati.";
+        return redirect()->route('pasien.index')->with('success', $msg);
+    }
 
-        session()->flash('import_errors', $rowErrors);
+    public function importConfirm(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $decisions = $request->input('decisions', []); // ['A0000001' => 'overwrite' | 'skip']
+        $pending   = session('import_pending_conflicts', []);
+
+        $updated = 0;
+        $skipped = 0;
+
+        foreach ($pending as $row) {
+            $kode     = $row['kode'];
+            $decision = $decisions[$kode] ?? 'skip';
+
+            if ($decision === 'overwrite') {
+                $pasien = Pasien::where('kode_pasien', $kode)->first();
+                if ($pasien) {
+                    // Timpa data umum saja — data kesehatan mata di tabel terpisah, tidak tersentuh
+                    $pasien->update([
+                        'nama_pasien'   => $row['nama_baru'],
+                        'tanggal_buat'  => $row['tanggal_baru'],
+                        'alamat_pasien' => $row['alamat_baru'],
+                        'nohp_pasien'   => $row['nohp_baru'],
+                    ]);
+                    $this->log('import_overwrite', $pasien, ['imported_via' => 'excel/csv']);
+                    $updated++;
+                }
+            } else {
+                $skipped++;
+            }
+        }
+
+        session()->forget('import_pending_conflicts');
+
+        $msg = "Konfirmasi import: {$updated} data diperbarui, {$skipped} dilewati.";
         return redirect()->route('pasien.index')->with('success', $msg);
     }
 

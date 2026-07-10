@@ -62,6 +62,10 @@ class HandleInertiaRequests extends Middleware
                 })(),
             ] : ['pending_deletion_count' => 0],
             'is_impersonating' => fn () => session()->has('impersonating_by'),
+            'flash' => fn () => [
+                'success' => session('success'),
+                'error'   => session('error'),
+            ],
         ];
     }
 }

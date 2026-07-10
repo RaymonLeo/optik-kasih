@@ -1,7 +1,8 @@
-// appV1.0 Rev 7 - Tambah keterangan bahwa kode pasien otomatis diformat agar panjangnya seragam.
+// appV1.0 Rev 8 - Tambah tombol kembali ke daftar pasien; setelah simpan redirect ke daftar.
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Head, usePage, router } from '@inertiajs/react';
+import { Head, Link, usePage, router } from '@inertiajs/react';
+import { ArrowLeft } from 'lucide-react';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import Toast from '@/Components/ui/Toast';
 import SidebarLayout from "@/Components/SidebarLayout";
@@ -36,8 +37,8 @@ function Edit() {
 
   const submit = () => {
     router.put(route('pasien.update', f.id), f, {
-      onSuccess: () => { setConfirm(false); setToast({ open:true, type:'success', message:'Data berhasil diubah!' }); },
-      onError: () => setToast({ open:true, type:'error', message:'Periksa input.' }),
+      onSuccess: () => setConfirm(false),
+      onError: () => { setConfirm(false); setToast({ open:true, type:'error', message:'Periksa input.' }); },
       preserveScroll: true,
     });
   };
@@ -46,6 +47,18 @@ function Edit() {
     <>
       <Head title="Edit Pasien" />
       <div className="p-0">
+
+        {/* Tombol kembali */}
+        <div className="mb-4">
+          <Link
+            href={route('pasien.index')}
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-orange-600 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Kembali ke Daftar Pasien
+          </Link>
+        </div>
+
         <div className="mx-auto max-w-4xl rounded-2xl border bg-white p-6 shadow-sm">
           <div className="grid gap-4 md:grid-cols-2">
 
@@ -138,7 +151,7 @@ function Edit() {
             </div>
           </div>
 
-          {/* Status pasien — hanya di form edit */}
+          {/* Status pasien */}
           <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
             <label className="block text-sm font-semibold text-gray-700">Status Pasien</label>
             <p className="mt-0.5 text-xs text-gray-500">
@@ -175,7 +188,12 @@ function Edit() {
           </div>
 
           <div className="mt-6 flex justify-end gap-3">
-            <button onClick={()=>history.back()} className="rounded-lg border px-4 py-2">Batal</button>
+            <Link
+              href={route('pasien.index')}
+              className="rounded-lg border px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Batal
+            </Link>
             <button onClick={()=>setConfirm(true)} className="rounded-lg bg-orange-600 px-4 py-2 text-white hover:bg-orange-700">
               Simpan Perubahan
             </button>
