@@ -23,3 +23,9 @@ CODEX_CORE_MEMORY.md
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# File deployment hosting (berisi password / binary besar)
+env_production.txt
+migrate_run.php
+laravel-app.zip
+public/build.zip

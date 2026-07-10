@@ -13,7 +13,7 @@
     @viteReactRefresh
 
     {{-- ❗️Hanya entry utama. JANGAN muat file page di sini --}}
-    @vite(['resources/css/app.css', 'resources/js/app.jsx'])
+    @vite(['resources/js/app.jsx'])
 
     @inertiaHead
   </head>

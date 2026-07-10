@@ -1,8 +1,9 @@
-// appV1.0 Rev 3 - Transaksi global superadmin dengan ringkasan finansial dan filter tanggal.
+// appV1.0 Rev 4 - Tambah tombol Detail per baris untuk lihat detail transaksi lintas cabang.
 
 import SidebarLayout from '@/Components/SidebarLayout';
+import TransaksiDetailModal from '@/Components/TransaksiDetailModal';
 import { Head, Link, router } from '@inertiajs/react';
-import { CalendarRange, Filter, ReceiptText, Search, TrendingDown, Wallet } from 'lucide-react';
+import { CalendarRange, Eye, Filter, ReceiptText, Search, TrendingDown, Wallet } from 'lucide-react';
 import { useState } from 'react';
 
 const money = (value) => Number(value || 0).toLocaleString('id-ID');
@@ -37,6 +38,7 @@ export default function TransaksiGlobal({ transactions, admins = [], summary = {
     const [date, setDate] = useState(filters.date || '');
     const [to, setTo] = useState(filters.to || '');
     const [sortHarga, setSortHarga] = useState(filters.sort_harga || 'desc');
+    const [selectedTrx, setSelectedTrx] = useState(null);
 
     const apply = (event) => {
         event.preventDefault();
@@ -131,6 +133,7 @@ export default function TransaksiGlobal({ transactions, admins = [], summary = {
                                     <th className="px-4 py-3">Metode</th>
                                     <th className="px-4 py-3 text-right">Harga</th>
                                     <th className="px-4 py-3 text-right">Sisa</th>
+                                    <th className="px-4 py-3 text-center">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
@@ -144,11 +147,20 @@ export default function TransaksiGlobal({ transactions, admins = [], summary = {
                                         <td className="px-4 py-3 text-slate-700">{row.metode_pembayaran_1 || '-'}{row.metode_pembayaran_2 ? ` / ${row.metode_pembayaran_2}` : ''}</td>
                                         <td className="px-4 py-3 text-right font-extrabold text-slate-950">Rp {money(row.harga)}</td>
                                         <td className="px-4 py-3 text-right font-semibold text-slate-700">Rp {money(row.sisa)}</td>
+                                        <td className="px-4 py-3 text-center">
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedTrx(row)}
+                                                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 hover:border-[#E56020] hover:text-[#E56020]"
+                                            >
+                                                <Eye className="h-3.5 w-3.5" /> Detail
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))}
                                 {transactions.data.length === 0 && (
                                     <tr>
-                                        <td colSpan="8" className="px-4 py-10 text-center text-slate-500">Belum ada transaksi pada filter ini.</td>
+                                        <td colSpan="9" className="px-4 py-10 text-center text-slate-500">Belum ada transaksi pada filter ini.</td>
                                     </tr>
                                 )}
                             </tbody>
@@ -169,6 +181,10 @@ export default function TransaksiGlobal({ transactions, admins = [], summary = {
                     ))}
                 </div>
             </div>
+
+            {selectedTrx && (
+                <TransaksiDetailModal trx={selectedTrx} onClose={() => setSelectedTrx(null)} />
+            )}
         </SidebarLayout>
     );
 }

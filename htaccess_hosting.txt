@@ -1,0 +1,36 @@
+AddHandler application/x-httpd-php83 .php
+
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Arahkan /storage/... ke storage/app/public (HARUS sebelum block rule)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^storage/(.*)$ storage/app/public/$1 [L]
+
+    # Arahkan /build/... ke public/build (asset Vite)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^build/(.*)$ public/build/$1 [L]
+
+    # Arahkan /images/... ke public/images (logo, gambar statis)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^images/(.*)$ public/images/$1 [L]
+
+    # Blokir akses langsung ke folder sensitif Laravel (storage sudah ditangani di atas)
+    RewriteRule ^(app|bootstrap|config|database|resources|routes|tests|vendor)(/.*)? - [F,L]
+
+    # Tangani Authorization Header (untuk Sanctum)
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Hapus trailing slash
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
+
+    # Semua request lainnya ke index.php (front controller)
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
+</IfModule>

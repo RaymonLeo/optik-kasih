@@ -63,6 +63,18 @@ export default function ResetPassword({ token, email }) {
             showAlert('error', 'Password harus minimal 8 karakter!');
             return;
         }
+        if (data.password.length > 12) {
+            showAlert('error', 'Password maksimal 12 karakter!');
+            return;
+        }
+        if (!/[A-Z]/.test(data.password)) {
+            showAlert('error', 'Password harus mengandung minimal 1 huruf besar!');
+            return;
+        }
+        if (!/[0-9]/.test(data.password)) {
+            showAlert('error', 'Password harus mengandung minimal 1 angka!');
+            return;
+        }
 
         post(route('password.store'), {
             onFinish: () => reset('password', 'password_confirmation'),
@@ -89,7 +101,7 @@ export default function ResetPassword({ token, email }) {
                 </div>
                 <h1 className="text-3xl font-extrabold text-slate-900 mb-2">Buat Password Baru</h1>
                 <p className="text-slate-500 text-sm leading-relaxed">
-                    Masukkan password baru Anda. Gunakan minimal 8 karakter dengan kombinasi huruf dan angka.
+                    Masukkan password baru Anda. Gunakan 8–12 karakter dengan kombinasi huruf besar dan angka.
                 </p>
             </div>
 
@@ -124,7 +136,8 @@ export default function ResetPassword({ token, email }) {
                             type={showPassword ? 'text' : 'password'}
                             value={data.password}
                             onChange={(e) => setData('password', e.target.value)}
-                            placeholder="Minimal 8 karakter"
+                            placeholder="8–12 karakter, huruf besar & angka"
+                            maxLength={12}
                             className="w-full rounded-xl border border-slate-200 px-4 py-3 pr-12 text-slate-900 placeholder:text-slate-400 focus:border-[#E56020] focus:ring-4 focus:ring-[#E56020]/10 transition-all duration-200 outline-none"
                         />
                         <button

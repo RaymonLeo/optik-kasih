@@ -34,8 +34,6 @@ return new class extends Migration {
             $table->string('add_kiri')->nullable();
 
             $table->timestamps();
-
-            $table->index(['nama_lensa', 'jenis_lensa']);
         });
     }
 

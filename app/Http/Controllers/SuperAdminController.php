@@ -13,6 +13,7 @@ use App\Models\Pengeluaran;
 use App\Models\ActivityLog;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 
 class SuperAdminController extends Controller
 {
@@ -128,7 +129,7 @@ class SuperAdminController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8'],
+            'password' => ['required', 'string', 'max:12', Password::defaults()],
             'branch_phone' => ['nullable', 'regex:/^(?:0|62)?8\d{8,13}$/'],
             'branch_operational_hours' => ['nullable', 'string', 'max:120'],
             'branch_address' => ['nullable', 'string'],
@@ -193,7 +194,7 @@ class SuperAdminController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($admin->id)],
-            'password' => ['nullable', 'string', 'min:8'],
+            'password' => ['nullable', 'string', 'max:12', Password::defaults()],
             'branch_phone' => ['nullable', 'regex:/^(?:0|62)?8\d{8,13}$/'],
             'branch_operational_hours' => ['nullable', 'string', 'max:120'],
             'branch_address' => ['nullable', 'string'],

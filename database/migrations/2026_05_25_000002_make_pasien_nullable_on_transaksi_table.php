@@ -8,14 +8,21 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('transaksi', function (Blueprint $table) {
-            $table->dropForeign(['pasien_id']);
-        });
+        try {
+            Schema::table('transaksi', function (Blueprint $table) {
+                $table->dropForeign(['pasien_id']);
+            });
+        } catch (\Throwable $e) {}
 
         Schema::table('transaksi', function (Blueprint $table) {
-            $table->foreignId('pasien_id')->nullable()->change();
-            $table->foreign('pasien_id')->references('id')->on('pasien')->cascadeOnDelete();
+            $table->unsignedBigInteger('pasien_id')->nullable()->change();
         });
+
+        try {
+            Schema::table('transaksi', function (Blueprint $table) {
+                $table->foreign('pasien_id')->references('id')->on('pasien')->cascadeOnDelete();
+            });
+        } catch (\Throwable $e) {}
     }
 
     public function down(): void

@@ -52,7 +52,7 @@ export default function UpdatePasswordForm({ className = '' }) {
                 </h2>
 
                 <p className="mt-1 text-sm text-slate-600">
-                    Pastikan akun Anda menggunakan password yang panjang dan acak agar tetap aman.
+                    Password harus 8–12 karakter dan mengandung minimal 1 huruf besar serta 1 angka.
                 </p>
             </header>
 
@@ -92,6 +92,8 @@ export default function UpdatePasswordForm({ className = '' }) {
                         type="password"
                         className="mt-1 block w-full"
                         autoComplete="new-password"
+                        maxLength={12}
+                        placeholder="8–12 karakter, huruf besar & angka"
                     />
 
                     <InputError message={errors.password} className="mt-2" />

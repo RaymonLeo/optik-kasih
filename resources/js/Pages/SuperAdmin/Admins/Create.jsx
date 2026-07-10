@@ -97,12 +97,18 @@ export default function AdminCreate({ admin = null }) {
                         />
                     </Field>
 
-                    <Field label={isEdit ? 'Password Baru (opsional)' : 'Password'} error={errors.password}>
+                    <Field
+                        label={isEdit ? 'Password Baru (opsional)' : 'Password'}
+                        helper="8–12 karakter, wajib ada huruf besar dan angka. Contoh: OptikKasih1"
+                        error={errors.password}
+                    >
                         <input
                             type="password"
                             value={data.password}
                             onChange={(event) => setData('password', event.target.value)}
                             className="h-11 w-full rounded-lg border-slate-300"
+                            maxLength={12}
+                            placeholder="Contoh: OptikKasih1"
                         />
                     </Field>
 
