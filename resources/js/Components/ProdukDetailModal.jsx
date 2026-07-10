@@ -1,6 +1,7 @@
 import { Link } from '@inertiajs/react';
 import { Edit, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 const money = (value) => Number(value || 0).toLocaleString('id-ID');
 
@@ -29,7 +30,7 @@ export default function ProdukDetailModal({ product, editHref, onDelete, onClose
 
     const active = images[Math.min(activeIdx, images.length - 1)] || null;
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
             <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl" onClick={(event) => event.stopPropagation()}>
                 <div className="flex items-start justify-between gap-4">
@@ -101,6 +102,7 @@ export default function ProdukDetailModal({ product, editHref, onDelete, onClose
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 }
