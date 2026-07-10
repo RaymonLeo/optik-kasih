@@ -1,7 +1,7 @@
 // appV1.0 Rev 6 - Tab Soflen/Air Soflen, cari pasien pakai No.HP + hover card, kategori item manual, gagang sendiri.
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useForm, usePage } from "@inertiajs/react";
+import { Link, router, useForm, usePage } from "@inertiajs/react";
 import SidebarLayout from "@/Components/SidebarLayout";
 import PatientHoverCard from "@/Components/patients/PatientHoverCard";
 
@@ -132,10 +132,10 @@ const StatusBadge = ({ statusBayar }) => (
   </div>
 );
 
-function TabBtn({ value, activeTab, onTabChange, children }) {
+function TabBtn({ value, activeTab, onTabChange, disabled, children }) {
   return (
-    <button type="button" onClick={() => onTabChange(value)}
-      className={`rounded-full border px-4 py-2 ${activeTab === value ? "border-orange-600 bg-orange-600 text-white" : "bg-white"}`}>
+    <button type="button" disabled={disabled} onClick={() => !disabled && onTabChange(value)}
+      className={`rounded-full border px-4 py-2 ${activeTab === value ? "border-orange-600 bg-orange-600 text-white" : "bg-white"} ${disabled ? "cursor-not-allowed opacity-50" : ""}`}>
       {children}
     </button>
   );
@@ -228,6 +228,8 @@ export default function Create({ mode = "create", prefill = null }) {
     if (!prefill) return defaultForm;
     return {
       ...defaultForm, ...prefill,
+      _id: prefill.id ?? null,
+      _kode: prefill.kode ?? null,
       kode_pasien: prefill.pasien?.kode_pasien || "",
       pasien: { id: prefill.pasien?.id || null, nama: prefill.pasien?.nama_pasien || "", alamat: prefill.pasien?.alamat || "", telepon: prefill.pasien?.telepon || "" },
     };
@@ -235,14 +237,39 @@ export default function Create({ mode = "create", prefill = null }) {
 
   const { data, setData, post, put, processing, reset, errors } = useForm(initial);
 
-  // Sisa otomatis
-  useEffect(() => {
+  // Sisa awal setelah panjar (sebelum pelunasan)
+  const sisaAwal = useMemo(() => {
     const s = Number(data.harga || 0) - Number(data.panjar || 0);
-    setData("sisa", s > 0 ? s : 0);
+    return s > 0 ? s : 0;
   }, [data.harga, data.panjar]);
+
+  // Sisa otomatis: 0 jika pelunasan (Metode Bayar 2) sudah dipilih, karena sisa sudah dibayar
+  useEffect(() => {
+    setData("sisa", data.metode_pembayaran_2 ? 0 : sisaAwal);
+  }, [sisaAwal, data.metode_pembayaran_2]);
+
+  // Jumlah Bayar 1 otomatis = Panjar (jika ada panjar) atau Harga penuh (jika lunas sekaligus)
+  useEffect(() => {
+    const jb1 = Number(data.panjar || 0) > 0 ? Number(data.panjar || 0) : Number(data.harga || 0);
+    setData("jumlah_bayar_1", jb1);
+  }, [data.harga, data.panjar]);
+
+  // Jumlah Bayar 2 otomatis = Sisa awal, hanya jika Metode Bayar 2 (pelunasan) sudah dipilih
+  useEffect(() => {
+    setData("jumlah_bayar_2", data.metode_pembayaran_2 ? sisaAwal : 0);
+  }, [sisaAwal, data.metode_pembayaran_2]);
 
   // Status pembayaran otomatis (display only)
   const statusBayar = Number(data.panjar) > 0 && Number(data.sisa) > 0 ? "panjar" : "lunas";
+
+  /* ── Status kacamata / pengambilan (edit mode, tersimpan langsung via PATCH) ── */
+  const [statusKacamata, setStatusKacamata] = useState(prefill?.status_kacamata || "belum_selesai");
+  const [statusPengambilan, setStatusPengambilan] = useState(prefill?.status_pengambilan || "belum_diambil");
+  function updateStatusField(field, value) {
+    if (field === "status_kacamata") setStatusKacamata(value);
+    else setStatusPengambilan(value);
+    router.patch(route("admin.transaksi.update_status", data._id), { [field]: value }, { preserveScroll: true });
+  }
 
   /* ── Pasien autocomplete ────────────────────────────────────── */
   const [suggestions, setSuggestions] = useState([]);
@@ -284,10 +311,23 @@ export default function Create({ mode = "create", prefill = null }) {
   }
 
   /* ── Tab ─────────────────────────────────────────────────────── */
-  // Inisialisasi tab dari data.type saat mount (mis. mode edit); perubahan tab selanjutnya
-  // murni dikendalikan oleh handleTabChange, supaya tab Soflen/Air Soflen tidak ketimpa balik ke "lain".
-  const [tab, setTab] = useState(() => data.type === "produk" ? "lain" : "resep");
+  // Inisialisasi tab: saat edit, tab ditentukan dari kategori_transaksi asli (bukan cuma type),
+  // supaya transaksi kacamata yang punya produk_id (beli gagang) tidak salah nyasar ke tab "lain".
+  // Perubahan tab selanjutnya murni dikendalikan oleh handleTabChange.
+  const [tab, setTab] = useState(() => {
+    if (isEdit && prefill) {
+      if (prefill.kategori_transaksi === "kacamata") return "resep";
+      if (prefill.kategori_transaksi === "produk_lainnya") {
+        const k = (prefill.produk_kategori || "").toLowerCase();
+        if (k === "soflen") return "soflen";
+        if (k === "air soflen") return "air_soflen";
+        return "lain";
+      }
+    }
+    return data.type === "produk" ? "lain" : "resep";
+  });
   function handleTabChange(value) {
+    if (isEdit) return; // kategori transaksi terkunci saat edit
     setTab(value);
     setData("type", value === "resep" ? "resep" : "produk");
   }
@@ -340,12 +380,37 @@ export default function Create({ mode = "create", prefill = null }) {
         <Link href={route("admin.transaksi.index")} className="text-orange-700 hover:underline">← Kembali</Link>
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-3">
-        <TabBtn value="resep" activeTab={tab} onTabChange={handleTabChange}>🕶 Kacamata</TabBtn>
-        <TabBtn value="soflen" activeTab={tab} onTabChange={handleTabChange}>🔵 Soflen</TabBtn>
-        <TabBtn value="air_soflen" activeTab={tab} onTabChange={handleTabChange}>💧 Air Soflen</TabBtn>
-        <TabBtn value="lain" activeTab={tab} onTabChange={handleTabChange}>📦 Produk Lainnya</TabBtn>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <TabBtn value="resep" activeTab={tab} onTabChange={handleTabChange} disabled={isEdit}>🕶 Kacamata</TabBtn>
+        <TabBtn value="soflen" activeTab={tab} onTabChange={handleTabChange} disabled={isEdit}>🔵 Soflen</TabBtn>
+        <TabBtn value="air_soflen" activeTab={tab} onTabChange={handleTabChange} disabled={isEdit}>💧 Air Soflen</TabBtn>
+        <TabBtn value="lain" activeTab={tab} onTabChange={handleTabChange} disabled={isEdit}>📦 Produk Lainnya</TabBtn>
+        {isEdit && <span className="text-xs text-gray-400">🔒 Kategori transaksi tidak dapat diubah saat edit</span>}
       </div>
+
+      {isEdit && (
+        <Section title="Status Transaksi">
+          <div className="grid gap-4 md:grid-cols-2">
+            {tab === "resep" && (
+              <Field label="Status Pengerjaan Kacamata">
+                <select value={statusKacamata} onChange={e => updateStatusField("status_kacamata", e.target.value)}
+                  className="h-10 w-full rounded border px-3">
+                  <option value="belum_selesai">Proses</option>
+                  <option value="sudah_selesai">Selesai</option>
+                </select>
+              </Field>
+            )}
+            <Field label="Status Pengambilan">
+              <select value={statusPengambilan} onChange={e => updateStatusField("status_pengambilan", e.target.value)}
+                className="h-10 w-full rounded border px-3">
+                <option value="belum_diambil">Belum Diambil</option>
+                <option value="sudah_diambil">Sudah Diambil</option>
+              </select>
+            </Field>
+          </div>
+          <p className="mt-2 text-xs text-gray-400">Perubahan status tersimpan otomatis, tidak perlu klik Simpan Perubahan.</p>
+        </Section>
+      )}
 
       {/* ── KACAMATA TAB ─────────────────────────────────────────── */}
       {tab === "resep" && (
@@ -501,9 +566,9 @@ export default function Create({ mode = "create", prefill = null }) {
                 </select>
               </Field>
               {data.panjar > 0 && <Field label="Jumlah Bayar 1 (Panjar)">
-                <MoneyInput value={data.jumlah_bayar_1} onChange={v => setData("jumlah_bayar_1", v)} />
+                <MoneyInput value={data.jumlah_bayar_1} onChange={() => {}} readOnly />
               </Field>}
-              {data.panjar > 0 && data.sisa > 0 && (
+              {data.panjar > 0 && sisaAwal > 0 && (
                 <>
                   <Field label="Metode Bayar 2 (Pelunasan)">
                     <select value={data.metode_pembayaran_2} onChange={e => setData("metode_pembayaran_2", e.target.value)} className="h-10 w-full rounded border px-3">
@@ -512,7 +577,7 @@ export default function Create({ mode = "create", prefill = null }) {
                     </select>
                   </Field>
                   <Field label="Jumlah Bayar 2 (Pelunasan)">
-                    <MoneyInput value={data.jumlah_bayar_2} onChange={v => setData("jumlah_bayar_2", v)} />
+                    <MoneyInput value={data.jumlah_bayar_2} onChange={() => {}} readOnly />
                   </Field>
                 </>
               )}
@@ -674,7 +739,7 @@ export default function Create({ mode = "create", prefill = null }) {
                   {["Transfer","QRIS","Cash","Kartu Debit/Kredit"].map(m => <option key={m}>{m}</option>)}
                 </select>
               </Field>
-              {data.panjar > 0 && data.sisa > 0 && (
+              {data.panjar > 0 && sisaAwal > 0 && (
                 <Field label="Metode Bayar 2">
                   <select value={data.metode_pembayaran_2} onChange={e => setData("metode_pembayaran_2", e.target.value)} className="h-10 w-full rounded border px-3">
                     <option value="">-- Pilih Saat Pelunasan --</option>

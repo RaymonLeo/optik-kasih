@@ -47,10 +47,12 @@ function formatDetails(details) {
 export default function History({ logs, admins = [], filters = {} }) {
     const [adminId, setAdminId] = useState(filters.admin_id || '');
     const [action, setAction] = useState(filters.action || '');
+    const [dateFrom, setDateFrom] = useState(filters.date_from || '');
+    const [dateTo, setDateTo] = useState(filters.date_to || '');
 
     const apply = (event) => {
         event.preventDefault();
-        router.get(route('super_admin.history'), { admin_id: adminId, action }, {
+        router.get(route('super_admin.history'), { admin_id: adminId, action, date_from: dateFrom, date_to: dateTo }, {
             preserveState: true,
             replace: true,
         });
@@ -78,22 +80,48 @@ export default function History({ logs, admins = [], filters = {} }) {
                     </div>
                 </section>
 
-                <form onSubmit={apply} className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-[260px_220px_auto]">
-                    <select value={adminId} onChange={(event) => setAdminId(event.target.value)} className="h-11 rounded-lg border-slate-300 text-sm">
-                        <option value="">Semua admin/cabang</option>
-                        {admins.map((admin) => (
-                            <option key={admin.id} value={admin.id}>{admin.name}</option>
-                        ))}
-                    </select>
-                    <select value={action} onChange={(event) => setAction(event.target.value)} className="h-11 rounded-lg border-slate-300 text-sm">
-                        <option value="">Semua aksi</option>
-                        <option value="create">Penambahan</option>
-                        <option value="update">Pengeditan</option>
-                        <option value="delete">Penghapusan</option>
-                        <option value="delete_requested">Permintaan penghapusan</option>
-                        <option value="delete_rejected">Penolakan penghapusan</option>
-                    </select>
-                    <button className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-800">
+                <form onSubmit={apply} className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-[minmax(180px,1fr)_minmax(160px,1fr)_160px_160px_auto] md:items-end">
+                    <label className="block">
+                        <span className="mb-1 block text-xs font-semibold text-slate-500">Admin / Cabang</span>
+                        <select value={adminId} onChange={(event) => setAdminId(event.target.value)} className="h-11 w-full rounded-lg border-slate-300 text-sm">
+                            <option value="">Semua admin/cabang</option>
+                            {admins.map((admin) => (
+                                <option key={admin.id} value={admin.id}>{admin.name}</option>
+                            ))}
+                        </select>
+                    </label>
+                    <label className="block">
+                        <span className="mb-1 block text-xs font-semibold text-slate-500">Jenis Aksi</span>
+                        <select value={action} onChange={(event) => setAction(event.target.value)} className="h-11 w-full rounded-lg border-slate-300 text-sm">
+                            <option value="">Semua aksi</option>
+                            <option value="create">Penambahan</option>
+                            <option value="update">Pengeditan</option>
+                            <option value="delete">Penghapusan</option>
+                            <option value="delete_requested">Permintaan penghapusan</option>
+                            <option value="delete_rejected">Penolakan penghapusan</option>
+                        </select>
+                    </label>
+                    <label className="block">
+                        <span className="mb-1 block text-xs font-semibold text-slate-500">Dari tanggal</span>
+                        <input
+                            type="date"
+                            value={dateFrom}
+                            max={dateTo || undefined}
+                            onChange={(event) => setDateFrom(event.target.value)}
+                            className="h-11 w-full rounded-lg border-slate-300 text-sm"
+                        />
+                    </label>
+                    <label className="block">
+                        <span className="mb-1 block text-xs font-semibold text-slate-500">Sampai tanggal</span>
+                        <input
+                            type="date"
+                            value={dateTo}
+                            min={dateFrom || undefined}
+                            onChange={(event) => setDateTo(event.target.value)}
+                            className="h-11 w-full rounded-lg border-slate-300 text-sm"
+                        />
+                    </label>
+                    <button className="inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-800">
                         <Filter className="h-4 w-4" />
                         Terapkan Filter
                     </button>

@@ -94,12 +94,18 @@ class SuperAdminController extends Controller
     public function history(Request $request)
     {
         $query = ActivityLog::with('user')->latest();
-        
+
         if ($request->has('admin_id') && $request->admin_id != '') {
             $query->where('user_id', $request->admin_id);
         }
         if ($request->has('action') && $request->action != '') {
             $query->where('action', $request->action);
+        }
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date('date_from')->toDateString());
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date('date_to')->toDateString());
         }
 
         $logs = $query->paginate(20)->withQueryString();
@@ -108,7 +114,7 @@ class SuperAdminController extends Controller
         return Inertia::render('SuperAdmin/History', [
             'logs' => $logs,
             'admins' => $admins,
-            'filters' => $request->only(['admin_id', 'action'])
+            'filters' => $request->only(['admin_id', 'action', 'date_from', 'date_to'])
         ]);
     }
 

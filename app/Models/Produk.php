@@ -30,6 +30,7 @@ class Produk extends Model
         'lebar_lensa',
         'gagang_hidung',
         'panjang_gagang',
+        'tampil_katalog',
     ];
 
     public function admin()
@@ -42,6 +43,7 @@ class Produk extends Model
         'harga_produk'  => 'decimal:2',
         'tanggal_masuk'=> 'date:Y-m-d',
         'expired_produk'=> 'date:Y-m-d',
+        'tampil_katalog' => 'boolean',
     ];
 
     public function transaksi(): HasMany

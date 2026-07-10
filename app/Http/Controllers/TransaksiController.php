@@ -278,7 +278,7 @@ class TransaksiController extends Controller
             }
 
             $this->log('create', $trx);
-            return redirect()->route('admin.transaksi.show', $trx->id)->with('success', 'Transaksi kacamata tersimpan.');
+            return redirect()->route('admin.transaksi.index')->with('success', 'Transaksi kacamata tersimpan.');
         }
 
         // ── produk_lainnya ────────────────────────────────────────────────────
@@ -335,7 +335,7 @@ class TransaksiController extends Controller
         }
 
         $this->log('create', $trx);
-        return redirect()->route('admin.transaksi.show', $trx->id)->with('success', 'Transaksi produk tersimpan.');
+        return redirect()->route('admin.transaksi.index')->with('success', 'Transaksi produk tersimpan.');
     }
 
     // ─── SHOW ─────────────────────────────────────────────────────────────────
@@ -370,6 +370,8 @@ class TransaksiController extends Controller
                 'total'               => max(0, (float)$transaksi->harga - (float)$transaksi->panjar),
                 'metode_pembayaran_1' => $transaksi->metode_pembayaran_1,
                 'metode_pembayaran_2' => $transaksi->metode_pembayaran_2,
+                'jumlah_bayar_1'      => $transaksi->jumlah_bayar_1,
+                'jumlah_bayar_2'      => $transaksi->jumlah_bayar_2,
                 'branch_name'         => $transaksi->admin?->name,
                 'pasien' => $transaksi->pasien ? [
                     'id'          => $transaksi->pasien->id,
@@ -394,7 +396,11 @@ class TransaksiController extends Controller
         $prefill = [
             'id'                  => $transaksi->id,
             'kode'                => $transaksi->id,
-            'type'                => $transaksi->produk_id ? 'produk' : 'resep',
+            'type'                => $transaksi->kategori_transaksi === 'kacamata' ? 'resep' : 'produk',
+            'kategori_transaksi'  => $transaksi->kategori_transaksi,
+            'produk_kategori'     => $transaksi->produk?->kategori,
+            'status_kacamata'     => $transaksi->status_kacamata,
+            'status_pengambilan'  => $transaksi->status_pengambilan,
             'tanggal_pesanan'     => optional($transaksi->tanggal_pesan)->format('Y-m-d'),
             'tanggal_selesai'     => optional($transaksi->tanggal_selesai)->format('Y-m-d'),
             'frame'               => $transaksi->gagang_pelanggan,
@@ -475,7 +481,7 @@ class TransaksiController extends Controller
             ]);
 
             $this->log('update', $transaksi);
-            return redirect()->route('admin.transaksi.show', $transaksi->id)->with('success', 'Transaksi diperbarui.');
+            return redirect()->route('admin.transaksi.index')->with('success', 'Transaksi diperbarui.');
         }
 
         $data = $r->validate([
@@ -510,7 +516,7 @@ class TransaksiController extends Controller
         ]);
 
         $this->log('update', $transaksi);
-        return redirect()->route('admin.transaksi.show', $transaksi->id)->with('success', 'Transaksi produk diperbarui.');
+        return redirect()->route('admin.transaksi.index')->with('success', 'Transaksi produk diperbarui.');
     }
 
     // ─── UPDATE STATUS (PATCH) ────────────────────────────────────────────────

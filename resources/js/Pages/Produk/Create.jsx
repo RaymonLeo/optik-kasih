@@ -164,6 +164,7 @@ export default function ProdukCreate({
         lebar_lensa:            produk?.lebar_lensa || '',
         gagang_hidung:          produk?.gagang_hidung || '',
         panjang_gagang:         produk?.panjang_gagang || '',
+        tampil_katalog:         isEdit ? Boolean(produk?.tampil_katalog) : true,
         gambar_produk:          null,
         gambar_produk_tambahan: [],
     });
@@ -417,6 +418,21 @@ export default function ProdukCreate({
                                 placeholder="Jelaskan bahan, model, ukuran, atau informasi penting produk."
                             />
                         </Field>
+                    </div>
+
+                    <div className="md:col-span-2">
+                        <label className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                            <input
+                                type="checkbox"
+                                checked={data.tampil_katalog}
+                                onChange={(e) => setData('tampil_katalog', e.target.checked)}
+                                className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-400"
+                            />
+                            <span className="text-sm font-semibold text-gray-700">Tampilkan produk ini di katalog publik</span>
+                        </label>
+                        <p className="mt-1 text-xs text-slate-500">
+                            Jika dimatikan, produk tetap tersimpan tapi disembunyikan dari halaman katalog dan beranda publik.
+                        </p>
                     </div>
 
                     {/* Frame size — hanya muncul untuk kacamata */}

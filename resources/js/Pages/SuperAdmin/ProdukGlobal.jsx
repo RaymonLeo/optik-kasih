@@ -1,6 +1,7 @@
 // appV1.0 Rev 7 - Tambah animasi hover-only (floating + outline oranye) konsisten dengan Produk cabang.
 
 import SidebarLayout from '@/Components/SidebarLayout';
+import ProdukDetailModal from '@/Components/ProdukDetailModal';
 import { Head, Link, router } from '@inertiajs/react';
 import { Calendar, Edit, Filter, PackagePlus, Search, Tag, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -349,53 +350,15 @@ export default function ProdukGlobal({ products, admins = [], categories = [], c
             </div>
 
             {selectedProduct && (
-                <div className="fixed inset-0 z-[60] flex justify-end bg-slate-950/45 p-0 sm:p-4" onClick={() => setSelectedProduct(null)}>
-                    <aside className="h-full w-full max-w-xl overflow-y-auto rounded-none bg-white shadow-2xl sm:rounded-lg" onClick={(event) => event.stopPropagation()}>
-                        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4">
-                            <div>
-                                <h3 className="text-lg font-extrabold text-slate-950">Detail Produk</h3>
-                                <p className="text-sm text-slate-500">{selectedProduct.admin?.name || 'Tanpa cabang'}</p>
-                            </div>
-                            <button onClick={() => setSelectedProduct(null)} className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50">
-                                <X className="h-5 w-5" />
-                            </button>
-                        </div>
-
-                        <div className="p-5">
-                            <div className="aspect-[4/3] overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
-                                <ProductImage product={selectedProduct} />
-                            </div>
-
-                            <h2 className="mt-5 text-2xl font-extrabold text-slate-950">{selectedProduct.nama_produk}</h2>
-                            <p className="mt-1 text-sm font-bold text-[#E56020]">{selectedProduct.kategori_produk || 'Tanpa kategori'}</p>
-
-                            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                                {[
-                                    ['Harga', `Rp ${money(selectedProduct.harga_produk)}`],
-                                    ['Stok', selectedProduct.jumlah_produk ?? 0],
-                                    ['Tanggal Masuk', selectedProduct.tanggal_masuk || '-'],
-                                    ['Expired Produk', selectedProduct.expired_produk || '-'],
-                                ].map(([label, value]) => (
-                                    <div key={label} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                                        <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</p>
-                                        <p className="mt-2 text-base font-extrabold text-slate-950">{value}</p>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="mt-6 flex gap-3">
-                                <Link href={route('super_admin.produk.edit', selectedProduct.id)} className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-[#E56020] px-4 text-sm font-bold text-white hover:bg-orange-700">
-                                    <Edit className="h-4 w-4" />
-                                    Edit Produk
-                                </Link>
-                                <button onClick={() => removeProduct(selectedProduct)} className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-red-200 px-4 text-sm font-bold text-red-600 hover:bg-red-50">
-                                    <Trash2 className="h-4 w-4" />
-                                    Hapus
-                                </button>
-                            </div>
-                        </div>
-                    </aside>
-                </div>
+                <ProdukDetailModal
+                    product={selectedProduct}
+                    editHref={route('super_admin.produk.edit', selectedProduct.id)}
+                    onClose={() => setSelectedProduct(null)}
+                    onDelete={() => {
+                        removeProduct(selectedProduct);
+                        setSelectedProduct(null);
+                    }}
+                />
             )}
         </SidebarLayout>
     );

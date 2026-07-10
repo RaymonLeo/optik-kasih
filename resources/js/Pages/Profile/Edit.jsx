@@ -1,39 +1,47 @@
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import SidebarLayout from '@/Components/SidebarLayout';
 import { Head } from '@inertiajs/react';
+import BranchDisplayForm from './Partials/BranchDisplayForm';
 import DeleteUserForm from './Partials/DeleteUserForm';
 import UpdatePasswordForm from './Partials/UpdatePasswordForm';
 import UpdateProfileInformationForm from './Partials/UpdateProfileInformationForm';
 
-export default function Edit({ mustVerifyEmail, status }) {
+export default function Edit({ mustVerifyEmail, status, isSuperAdmin, branch }) {
     return (
-        <AuthenticatedLayout
-            header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Profile
-                </h2>
+        <SidebarLayout
+            title="Pengaturan Akun"
+            subtitle={
+                isSuperAdmin
+                    ? 'Kelola nama, email, dan password akun superadmin.'
+                    : 'Kelola informasi cabang yang tampil ke pelanggan.'
             }
         >
-            <Head title="Profile" />
+            <Head title="Pengaturan Akun" />
 
-            <div className="py-12">
-                <div className="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
-                    <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
-                        <UpdateProfileInformationForm
-                            mustVerifyEmail={mustVerifyEmail}
-                            status={status}
-                            className="max-w-xl"
-                        />
-                    </div>
+            <div className="mx-auto max-w-3xl space-y-5">
+                {isSuperAdmin ? (
+                    <>
+                        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+                            <UpdateProfileInformationForm
+                                mustVerifyEmail={mustVerifyEmail}
+                                status={status}
+                                className="max-w-xl"
+                            />
+                        </div>
 
-                    <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
-                        <UpdatePasswordForm className="max-w-xl" />
-                    </div>
+                        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+                            <UpdatePasswordForm className="max-w-xl" />
+                        </div>
 
-                    <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
-                        <DeleteUserForm className="max-w-xl" />
+                        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+                            <DeleteUserForm className="max-w-xl" />
+                        </div>
+                    </>
+                ) : (
+                    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+                        <BranchDisplayForm branch={branch} />
                     </div>
-                </div>
+                )}
             </div>
-        </AuthenticatedLayout>
+        </SidebarLayout>
     );
 }

@@ -200,7 +200,7 @@ export default function Index() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left font-semibold">ID</th>
+                <th className="px-4 py-3 text-left font-semibold">No</th>
                 <th className="px-4 py-3 text-left font-semibold">Tanggal</th>
                 <th className="px-4 py-3 text-left font-semibold">Kategori</th>
                 <th className="px-4 py-3 text-left font-semibold">Pasien</th>
@@ -211,9 +211,9 @@ export default function Index() {
               </tr>
             </thead>
             <tbody>
-              {transactions.data.map((row) => (
+              {transactions.data.map((row, idx) => (
                 <tr key={row.id} className="cursor-pointer border-t hover:bg-orange-50/40" onClick={() => router.visit(route("admin.transaksi.show", row.id))}>
-                  <td className="px-4 py-3 font-semibold text-gray-700">#{row.kode}</td>
+                  <td className="px-4 py-3 font-semibold text-gray-700">{transactions.from + idx}</td>
                   <td className="px-4 py-3 text-gray-600">{row.tanggal_pesanan}</td>
                   <td className="px-4 py-3">
                     {row.kategori_transaksi && (
@@ -228,7 +228,7 @@ export default function Index() {
                   </td>
                   <td className="px-4 py-3 font-semibold text-gray-800">
                     {IDR(row.harga)}
-                    {Number(row.panjar) > 0 && <div className="text-xs text-gray-400">panjar {IDR(row.panjar)}</div>}
+                    {Number(row.panjar) > 0 && row.status_pembayaran !== "lunas" && <div className="text-xs text-gray-400">panjar {IDR(row.panjar)}</div>}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-col gap-1">

@@ -22,9 +22,19 @@ class ProfileController extends Controller
      */
     public function edit(Request $request): Response
     {
+        $user = $request->user();
+
         return Inertia::render('Profile/Edit', [
-            'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
+            'mustVerifyEmail' => $user instanceof MustVerifyEmail,
             'status' => session('status'),
+            'isSuperAdmin' => $user->role === 'super_admin',
+            'branch' => $user->role === 'admin' ? $user->only([
+                'branch_phone',
+                'branch_operational_hours',
+                'branch_address',
+                'branch_description',
+                'branch_map_link',
+            ]) : null,
         ]);
     }
 
@@ -78,10 +88,32 @@ class ProfileController extends Controller
     }
 
     /**
+     * Update the branch display info for the logged-in branch admin (own account only).
+     */
+    public function updateBranch(Request $request): RedirectResponse
+    {
+        abort_unless($request->user()->role === 'admin', 403);
+
+        $data = $request->validate([
+            'branch_phone' => ['nullable', 'regex:/^(?:0|62)?8\d{8,13}$/'],
+            'branch_operational_hours' => ['nullable', 'string', 'max:120'],
+            'branch_address' => ['nullable', 'string'],
+            'branch_description' => ['nullable', 'string', 'max:2000'],
+            'branch_map_link' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $request->user()->update($data);
+
+        return Redirect::route('profile.edit');
+    }
+
+    /**
      * Delete the user's account.
      */
     public function destroy(Request $request): RedirectResponse
     {
+        abort_unless($request->user()->role === 'super_admin', 403);
+
         $request->validate([
             'password' => ['required', 'current_password'],
         ]);

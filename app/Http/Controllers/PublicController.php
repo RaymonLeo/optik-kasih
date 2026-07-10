@@ -24,7 +24,7 @@ class PublicController extends Controller
             $selectedBranchId = null;
         }
 
-        $baseQuery = Produk::query();
+        $baseQuery = Produk::query()->where('tampil_katalog', true);
 
         if ($selectedBranchId) {
             $baseQuery->where('admin_id', $selectedBranchId);
@@ -133,7 +133,7 @@ class PublicController extends Controller
             $selectedBranchId = (int) optional($admins->first())->id;
         }
 
-        $baseQuery = Produk::query()->with(['admin', 'images']);
+        $baseQuery = Produk::query()->with(['admin', 'images'])->where('tampil_katalog', true);
         if ($selectedBranchId) {
             $baseQuery->where('admin_id', $selectedBranchId);
         }
@@ -168,7 +168,7 @@ class PublicController extends Controller
             default => $baseQuery->latest(),
         };
 
-        $categoryQuery = Produk::query();
+        $categoryQuery = Produk::query()->where('tampil_katalog', true);
         if ($selectedBranchId) {
             $categoryQuery->where('admin_id', $selectedBranchId);
         }
@@ -230,6 +230,7 @@ class PublicController extends Controller
             'images',
         ]);
         abort_unless($produk->admin?->role === 'admin', 404);
+        abort_unless($produk->tampil_katalog, 404);
 
         $phone = preg_replace('/\D+/', '', (string) $produk->admin->branch_phone);
         if (str_starts_with($phone, '0')) {
@@ -267,7 +268,7 @@ class PublicController extends Controller
     {
         return User::query()
             ->where('role', 'admin')
-            ->withCount('produk')
+            ->withCount(['produk' => fn ($query) => $query->where('tampil_katalog', true)])
             ->with(['branchPhotos' => fn ($query) => $query
                 ->where('is_featured', true)
                 ->orderBy('sort_order')

@@ -1,6 +1,7 @@
 // appV1.0 Rev 7 - Klik card buka drawer detail (dengan Edit/Hapus); hapus outline kuning stok rendah, hover-only lift+outline.
 
 import SidebarLayout from '@/Components/SidebarLayout';
+import ProdukDetailModal from '@/Components/ProdukDetailModal';
 import { Link, router, usePage } from '@inertiajs/react';
 import { Edit, Filter, PackagePlus, Search, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -506,68 +507,17 @@ export default function ProdukIndex() {
             </div>
 
             {selectedProduct && (
-                <div className="fixed inset-0 z-[60] flex justify-end bg-slate-950/45 p-0 sm:p-4" onClick={() => setSelectedProduct(null)}>
-                    <aside className="h-full w-full max-w-xl overflow-y-auto rounded-none bg-white shadow-2xl sm:rounded-lg" onClick={(event) => event.stopPropagation()}>
-                        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-5 py-4">
-                            <h3 className="text-lg font-extrabold text-gray-900">Detail Produk</h3>
-                            <button onClick={() => setSelectedProduct(null)} className="rounded-lg border border-gray-200 p-2 text-gray-600 hover:bg-gray-50">
-                                <X className="h-5 w-5" />
-                            </button>
-                        </div>
-
-                        <div className="p-5">
-                            <div className="aspect-[4/3] overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
-                                {selectedProduct.gambar_produk ? (
-                                    <img src={`/storage/${selectedProduct.gambar_produk}`} alt={selectedProduct.nama_produk} className="h-full w-full object-cover" />
-                                ) : (
-                                    <div className="flex h-full w-full items-center justify-center text-gray-400">Tidak ada gambar</div>
-                                )}
-                            </div>
-
-                            <h2 className="mt-5 text-2xl font-extrabold text-gray-900">{selectedProduct.nama_produk}</h2>
-                            <p className="mt-1 text-sm font-bold text-orange-700">{selectedProduct.kategori_produk}</p>
-
-                            {selectedProduct.deskripsi_produk && (
-                                <p className="mt-3 text-sm leading-6 text-gray-600">{selectedProduct.deskripsi_produk}</p>
-                            )}
-
-                            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                                {[
-                                    ['Harga', `Rp ${money(selectedProduct.harga_produk)}`],
-                                    ['Stok', selectedProduct.jumlah_produk ?? 0],
-                                    selectedProduct.warna_produk && ['Warna', selectedProduct.warna_produk],
-                                    selectedProduct.bahan_produk && ['Bahan', selectedProduct.bahan_produk],
-                                    selectedProduct.diameter_produk && ['Diameter', selectedProduct.diameter_produk],
-                                    selectedProduct.minus_produk && ['Minus / Plus', selectedProduct.minus_produk],
-                                    ['Tanggal Masuk', selectedProduct.tanggal_masuk || '-'],
-                                    ['Expired Produk', selectedProduct.expired_produk || '-'],
-                                ].filter(Boolean).map(([label, value]) => (
-                                    <div key={label} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                                        <p className="text-xs font-bold uppercase tracking-wide text-gray-500">{label}</p>
-                                        <p className="mt-2 text-base font-extrabold text-gray-900">{value}</p>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="mt-6 flex gap-3">
-                                <Link href={route(`${routeBase}.edit`, selectedProduct.id)} className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-orange-600 px-4 text-sm font-bold text-white hover:bg-orange-700">
-                                    <Edit className="h-4 w-4" /> Edit Produk
-                                </Link>
-                                <button
-                                    onClick={() => {
-                                        if (confirm('Hapus produk ini?')) {
-                                            router.delete(route(`${routeBase}.destroy`, selectedProduct.id), { preserveScroll: true });
-                                            setSelectedProduct(null);
-                                        }
-                                    }}
-                                    className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-red-200 px-4 text-sm font-bold text-red-600 hover:bg-red-50"
-                                >
-                                    <Trash2 className="h-4 w-4" /> Hapus
-                                </button>
-                            </div>
-                        </div>
-                    </aside>
-                </div>
+                <ProdukDetailModal
+                    product={selectedProduct}
+                    editHref={route(`${routeBase}.edit`, selectedProduct.id)}
+                    onClose={() => setSelectedProduct(null)}
+                    onDelete={() => {
+                        if (confirm('Hapus produk ini?')) {
+                            router.delete(route(`${routeBase}.destroy`, selectedProduct.id), { preserveScroll: true });
+                            setSelectedProduct(null);
+                        }
+                    }}
+                />
             )}
         </SidebarLayout>
     );

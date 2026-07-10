@@ -3,7 +3,6 @@
 import React, { useMemo, useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import {
-  Activity,
   ArrowLeftCircle,
   BarChart3,
   Bell,
@@ -237,13 +236,9 @@ export default function SidebarLayout({ children, title = "Dashboard", subtitle 
                 </span>
               )}
             </Link>
-            <div className="hidden items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 sm:flex">
-              <Activity className="h-4 w-4" />
-              Online
-            </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-950 text-sm font-bold text-white">
+            <Link href="/profile" className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-950 text-sm font-bold text-white hover:bg-slate-800" aria-label="Pengaturan Akun">
               {isSuperAdmin ? <ShieldCheck className="h-5 w-5" /> : <UserRound className="h-5 w-5" />}
-            </div>
+            </Link>
           </div>
         </header>
 

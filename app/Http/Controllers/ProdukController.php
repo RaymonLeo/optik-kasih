@@ -21,7 +21,7 @@ class ProdukController extends Controller
         $adminId = auth()->id();
         $search  = $request->get('search');
         $habis   = $request->boolean('habis', false);
-        $query   = Produk::where('admin_id', $adminId);
+        $query   = Produk::with('images')->where('admin_id', $adminId);
 
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -106,7 +106,7 @@ class ProdukController extends Controller
     public function indexGlobal(Request $request)
     {
         $search = $request->get('search');
-        $query = Produk::with('admin');
+        $query = Produk::with(['admin', 'images']);
 
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -202,6 +202,7 @@ class ProdukController extends Controller
     {
         $data = $this->normalizeData($this->validated($request));
         unset($data['gambar_produk_tambahan']);
+        $data['tampil_katalog'] = $request->boolean('tampil_katalog', true);
 
         if ($request->hasFile('gambar_produk')) {
             $data['gambar_produk'] = ImageCompressor::store($request->file('gambar_produk'), 'produk', 'public');
@@ -219,6 +220,7 @@ class ProdukController extends Controller
     {
         $data = $this->normalizeData($this->validated($request, true));
         unset($data['gambar_produk_tambahan']);
+        $data['tampil_katalog'] = $request->boolean('tampil_katalog', true);
 
         if ($request->hasFile('gambar_produk')) {
             $data['gambar_produk'] = ImageCompressor::store($request->file('gambar_produk'), 'produk', 'public');
@@ -288,6 +290,7 @@ class ProdukController extends Controller
 
         $data = $this->normalizeData($this->validated($request));
         unset($data['gambar_produk_tambahan']);
+        $data['tampil_katalog'] = $request->boolean('tampil_katalog', true);
         $this->replaceImage($request, $produk, $data);
         $produk->update($data);
         $this->storeAdditionalImages($request, $produk);
@@ -300,6 +303,7 @@ class ProdukController extends Controller
     {
         $data = $this->normalizeData($this->validated($request, true));
         unset($data['gambar_produk_tambahan']);
+        $data['tampil_katalog'] = $request->boolean('tampil_katalog', true);
         $this->replaceImage($request, $produk, $data);
         $produk->update($data);
         $this->storeAdditionalImages($request, $produk);
@@ -376,6 +380,7 @@ class ProdukController extends Controller
             'lebar_lensa'              => 'nullable|integer|min:0|max:999',
             'gagang_hidung'            => 'nullable|integer|min:0|max:999',
             'panjang_gagang'           => 'nullable|integer|min:0|max:999',
+            'tampil_katalog'           => 'nullable|boolean',
         ];
 
         if ($withAdmin) {
